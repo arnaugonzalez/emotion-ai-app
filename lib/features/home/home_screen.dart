@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:hive/hive.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 import '../../shared/models/emotional_record.dart';
+import '../../shared/services/sqlite_helper.dart';
 
 final inputProvider = StateProvider<String>((ref) => '');
 final emotionProvider = StateProvider<Emotion>((ref) => Emotion.happy);
@@ -9,20 +11,39 @@ final emotionProvider = StateProvider<Emotion>((ref) => Emotion.happy);
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
 
+  Future<void> saveEmotionalRecord(EmotionalRecord record) async {
+    final url = Uri.parse('http://localhost:8000/emotional_records/');
+    try {
+      final response = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(record.toMap()),
+      );
+
+      if (response.statusCode != 200) {
+        throw Exception('Failed to save emotional record');
+      }
+    } catch (e) {
+      // Save the record locally if the HTTP call fails
+      final sqliteHelper = SQLiteHelper();
+      await sqliteHelper.insertEmotionalRecord(record);
+      print('Saved emotional record locally due to error: $e');
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final input = ref.watch(inputProvider);
     final emotion = ref.watch(emotionProvider);
 
     return SafeArea(
-      // Wrap the layout in SafeArea
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'Escriu com et sents, algun pensament o quelcom que vulguis:',
+              'Write how you feel, any thought, or something you want to share:',
               style: TextStyle(fontSize: 20),
             ),
             const SizedBox(height: 10),
@@ -52,26 +73,30 @@ class HomeScreen extends ConsumerWidget {
             const SizedBox(height: 20),
             ElevatedButton(
               onPressed: () async {
-                final value = ref.read(inputProvider);
-                final selectedEmotion = ref.read(emotionProvider);
                 final now = DateTime.now();
-                final registro = EmotionalRecord(
-                  fecha: now,
-                  origen: 'home_input',
-                  descripcion: value,
-                  emocion: selectedEmotion,
+                final record = EmotionalRecord(
+                  date: now,
+                  source: 'home_input',
+                  description: input,
+                  emotion: emotion,
                 );
-                final box = Hive.box<EmotionalRecord>('registers');
-                await box.add(registro);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(
-                      'Registre guardat: $value - ${selectedEmotion.name}',
+
+                try {
+                  await saveEmotionalRecord(record);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        'Emotional record saved: $input - ${emotion.name}',
+                      ),
                     ),
-                  ),
-                );
+                  );
+                } catch (e) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Failed to save emotional record')),
+                  );
+                }
               },
-              child: const Text('Guardar registre emocional'),
+              child: const Text('Save Emotional Record'),
             ),
           ],
         ),
