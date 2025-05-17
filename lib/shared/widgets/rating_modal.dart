@@ -23,6 +23,12 @@ class _RatingModalState extends State<RatingModal> {
   final TextEditingController _commentController = TextEditingController();
 
   @override
+  void dispose() {
+    _commentController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return AlertDialog(
       title: const Text("Rate Your Session"),
@@ -34,7 +40,7 @@ class _RatingModalState extends State<RatingModal> {
             min: 0,
             max: 10,
             divisions: 10,
-            label: _rating.toString(),
+            label: _rating.toStringAsFixed(1),
             onChanged: (value) {
               setState(() {
                 _rating = value;
@@ -52,14 +58,20 @@ class _RatingModalState extends State<RatingModal> {
         ],
       ),
       actions: [
-        TextButton(onPressed: widget.onCancel, child: const Text("Don't Save")),
+        TextButton(
+          onPressed: () {
+            _commentController.clear();
+            widget.onCancel();
+          },
+          child: const Text("Don't Save"),
+        ),
         ElevatedButton(
           onPressed: () {
             final session = BreathingSessionData(
               date: DateTime.now(),
               pattern: widget.pattern,
               rating: _rating,
-              comment: _commentController.text,
+              comment: _commentController.text.trim(),
             );
             widget.onSave(session);
           },

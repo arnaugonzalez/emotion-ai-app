@@ -3,6 +3,9 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import '../../shared/models/emotional_record.dart';
 import '../../shared/services/sqlite_helper.dart';
+import 'package:logger/logger.dart';
+
+final logger = Logger();
 
 class ColorWheelScreen extends StatefulWidget {
   const ColorWheelScreen({super.key});
@@ -16,22 +19,30 @@ class _ColorWheelScreenState extends State<ColorWheelScreen> {
   Emotion? selectedEmotion;
 
   Future<void> saveEmotionalRecord(EmotionalRecord record) async {
-    final url = Uri.parse('http://localhost:8000/emotional_records/');
+    final url = Uri.parse('http://10.0.2.2:8000/emotional_records/');
     try {
-      final response = await http.post(
-        url,
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode(record.toMap()),
-      );
+      final response = await http
+          .post(
+            url,
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode(record.toMap()),
+          )
+          .timeout(const Duration(seconds: 5));
 
-      if (response.statusCode != 200) {
-        throw Exception('Failed to save emotional record');
+      if (response.statusCode != 200 && response.statusCode != 201) {
+        throw Exception('Failed to save to backend: ${response.statusCode}');
       }
+      logger.i('Emotional record saved to backend successfully');
     } catch (e) {
-      // Save the record locally if the HTTP call fails
-      final sqliteHelper = SQLiteHelper();
-      await sqliteHelper.insertEmotionalRecord(record);
-      print('Saved emotional record locally due to error: $e');
+      logger.w('Failed to save to backend, falling back to local storage: $e');
+      try {
+        final sqliteHelper = SQLiteHelper();
+        await sqliteHelper.insertEmotionalRecord(record);
+        logger.i('Emotional record saved locally successfully');
+      } catch (e) {
+        logger.e('Failed to save emotional record locally: $e');
+        rethrow;
+      }
     }
   }
 
@@ -88,6 +99,7 @@ class _ColorWheelScreenState extends State<ColorWheelScreen> {
 
                         try {
                           await saveEmotionalRecord(record);
+                          if (!context.mounted) return;
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
                               content: Text(
@@ -96,6 +108,7 @@ class _ColorWheelScreenState extends State<ColorWheelScreen> {
                             ),
                           );
                         } catch (e) {
+                          if (!context.mounted) return;
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
                               content: Text('Failed to save emotion'),

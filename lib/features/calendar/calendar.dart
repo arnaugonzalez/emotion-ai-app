@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:table_calendar/table_calendar.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
+import 'package:provider/provider.dart';
+import './events/calendar_events_provider.dart';
 import '../../shared/models/emotional_record.dart';
 import '../../shared/models/breathing_session_data.dart';
 import '../../shared/services/sqlite_helper.dart';
+import '../../shared/services/data_presets.dart';
+import 'package:table_calendar/table_calendar.dart';
 import 'package:logger/logger.dart';
 
 final logger = Logger();
@@ -20,108 +21,108 @@ class _CalendarScreenState extends State<CalendarScreen> {
   CalendarFormat _calendarFormat = CalendarFormat.month;
   DateTime _focusedDay = DateTime.now();
   DateTime? _selectedDay;
-  Map<DateTime, List<EmotionalRecord>> _emotionalEvents = {};
-  Map<DateTime, List<BreathingSessionData>> _breathingEvents = {};
+  bool _isLoadingPresets = false;
 
   @override
   void initState() {
     super.initState();
-    _fetchEvents();
+    _selectedDay = _focusedDay;
+
+    // Get provider reference before async gap
+    final provider = Provider.of<CalendarEventsProvider>(
+      context,
+      listen: false,
+    );
+
+    Future.microtask(() {
+      if (!mounted) return;
+      provider.fetchEvents(
+        onBackendError: (msg) {
+          if (!mounted) return;
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(msg)));
+        },
+      );
+    });
   }
 
-  Future<void> _fetchEvents() async {
-    final sqliteHelper = SQLiteHelper();
+  Future<void> _loadPresetData() async {
+    if (!mounted) return;
+
+    setState(() {
+      _isLoadingPresets = true;
+    });
 
     try {
-      // Fetch emotional records from the backend
-      final emotionalResponse = await http.get(
-        Uri.parse('http://localhost:8000/emotional_records/'),
+      final sqliteHelper = SQLiteHelper();
+      final presetService = DataPresetService(sqliteHelper);
+      final provider = Provider.of<CalendarEventsProvider>(
+        context,
+        listen: false,
       );
-      if (emotionalResponse.statusCode == 200) {
-        final List<dynamic> data = jsonDecode(emotionalResponse.body);
-        final Map<DateTime, List<EmotionalRecord>> events = {};
 
-        for (var item in data) {
-          final record = EmotionalRecord.fromMap(item);
-          final date = DateTime(
-            record.date.year,
-            record.date.month,
-            record.date.day,
-          );
-          events[date] = events[date] ?? [];
-          events[date]!.add(record);
-        }
+      await presetService.loadAllPresetData();
+      if (!mounted) return;
 
-        setState(() {
-          _emotionalEvents = events;
-        });
-      } else {
-        throw Exception('Failed to fetch emotional records');
-      }
+      // Refresh calendar events
+      await provider.fetchEvents();
 
-      // Fetch breathing sessions from the backend
-      final breathingResponse = await http.get(
-        Uri.parse('http://localhost:8000/breathing_sessions/'),
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Preset data loaded successfully'),
+          backgroundColor: Colors.green,
+        ),
       );
-      if (breathingResponse.statusCode == 200) {
-        final List<dynamic> data = jsonDecode(breathingResponse.body);
-        final Map<DateTime, List<BreathingSessionData>> events = {};
-
-        for (var item in data) {
-          final session = BreathingSessionData.fromMap(item);
-          final date = DateTime(
-            session.date.year,
-            session.date.month,
-            session.date.day,
-          );
-          events[date] = events[date] ?? [];
-          events[date]!.add(session);
-        }
-
-        setState(() {
-          _breathingEvents = events;
-        });
-      } else {
-        throw Exception('Failed to fetch breathing sessions');
-      }
     } catch (e) {
-      // Fallback to SQLite if the backend connection fails
-      logger.e('Fetching data from SQLite due to error: $e');
-
-      final emotionalRecords = await sqliteHelper.getEmotionalRecords();
-      final Map<DateTime, List<EmotionalRecord>> emotionalEvents = {};
-      for (var record in emotionalRecords) {
-        final date = DateTime(
-          record.date.year,
-          record.date.month,
-          record.date.day,
-        );
-        emotionalEvents[date] = emotionalEvents[date] ?? [];
-        emotionalEvents[date]!.add(record);
+      logger.e('Error loading preset data: $e');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to load preset data: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoadingPresets = false;
+        });
       }
-
-      final breathingSessions = await sqliteHelper.getBreathingSessions();
-      final Map<DateTime, List<BreathingSessionData>> breathingEvents = {};
-      for (var session in breathingSessions) {
-        final date = DateTime(
-          session.date.year,
-          session.date.month,
-          session.date.day,
-        );
-        breathingEvents[date] = breathingEvents[date] ?? [];
-        breathingEvents[date]!.add(session);
-      }
-
-      setState(() {
-        _emotionalEvents = emotionalEvents;
-        _breathingEvents = breathingEvents;
-      });
     }
   }
 
-  List<Widget> _buildEventMarkers(DateTime day) {
-    final emotionalRecords = _emotionalEvents[day] ?? [];
-    final breathingSessions = _breathingEvents[day] ?? [];
+  List<Widget> _buildEventMarkers(
+    DateTime day,
+    Map<DateTime, List<EmotionalRecord>> emotionalEvents,
+    Map<DateTime, List<BreathingSessionData>> breathingEvents,
+  ) {
+    // Normalize date to compare just year, month, and day
+    final normalizedDay = DateTime(day.year, day.month, day.day);
+
+    // Find matching events
+    final emotionalRecords =
+        emotionalEvents.entries
+            .where(
+              (entry) =>
+                  entry.key.year == normalizedDay.year &&
+                  entry.key.month == normalizedDay.month &&
+                  entry.key.day == normalizedDay.day,
+            )
+            .expand((entry) => entry.value)
+            .toList();
+
+    final breathingSessions =
+        breathingEvents.entries
+            .where(
+              (entry) =>
+                  entry.key.year == normalizedDay.year &&
+                  entry.key.month == normalizedDay.month &&
+                  entry.key.day == normalizedDay.day,
+            )
+            .expand((entry) => entry.value)
+            .toList();
 
     return [
       ...emotionalRecords.map(
@@ -149,22 +150,101 @@ class _CalendarScreenState extends State<CalendarScreen> {
     ];
   }
 
-  List<Widget> _buildDetailsForSelectedDay(DateTime day) {
-    final emotionalRecords = _emotionalEvents[day] ?? [];
-    final breathingSessions = _breathingEvents[day] ?? [];
+  List<Widget> _buildDetailsForSelectedDay(
+    DateTime day,
+    Map<DateTime, List<EmotionalRecord>> emotionalEvents,
+    Map<DateTime, List<BreathingSessionData>> breathingEvents,
+  ) {
+    // Normalize date to compare just year, month, and day
+    final normalizedDay = DateTime(day.year, day.month, day.day);
+
+    // Find matching events
+    final emotionalRecords =
+        emotionalEvents.entries
+            .where(
+              (entry) =>
+                  entry.key.year == normalizedDay.year &&
+                  entry.key.month == normalizedDay.month &&
+                  entry.key.day == normalizedDay.day,
+            )
+            .expand((entry) => entry.value)
+            .toList();
+
+    final breathingSessions =
+        breathingEvents.entries
+            .where(
+              (entry) =>
+                  entry.key.year == normalizedDay.year &&
+                  entry.key.month == normalizedDay.month &&
+                  entry.key.day == normalizedDay.day,
+            )
+            .expand((entry) => entry.value)
+            .toList();
+
+    if (emotionalRecords.isEmpty && breathingSessions.isEmpty) {
+      return [const ListTile(title: Text('No events for this day'))];
+    }
 
     return [
+      if (emotionalRecords.isNotEmpty)
+        const Padding(
+          padding: EdgeInsets.only(top: 8.0, left: 16.0, bottom: 4.0),
+          child: Text(
+            'Emotional Records',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          ),
+        ),
       ...emotionalRecords.map(
-        (record) => ListTile(
-          title: Text('Emotion: ${record.emotion.name}'),
-          subtitle: Text(record.description),
+        (record) => Card(
+          margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          child: ListTile(
+            leading: CircleAvatar(
+              backgroundColor: record.emotion.color,
+              radius: 16,
+            ),
+            title: Text(
+              record.emotion.name.toUpperCase(),
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+            subtitle: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(record.description),
+                Text(
+                  'Source: ${record.source}',
+                  style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
+      if (breathingSessions.isNotEmpty)
+        const Padding(
+          padding: EdgeInsets.only(top: 16.0, left: 16.0, bottom: 4.0),
+          child: Text(
+            'Breathing Sessions',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          ),
+        ),
       ...breathingSessions.map(
-        (session) => ListTile(
-          title: Text('Breathing Session'),
-          subtitle: Text(
-            'Rating: ${session.rating}, Comment: ${session.comment}',
+        (session) => Card(
+          margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          child: ListTile(
+            leading: const CircleAvatar(
+              backgroundColor: Colors.blue,
+              radius: 16,
+              child: Icon(Icons.air, color: Colors.white, size: 18),
+            ),
+            title: Text('Pattern: ${session.pattern.name}'),
+            subtitle: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Rating: ${session.rating}/5'),
+                if (session.comment.isNotEmpty)
+                  Text('Comment: ${session.comment}'),
+              ],
+            ),
           ),
         ),
       ),
@@ -173,49 +253,89 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(16.0),
-      child: Column(
-        children: [
-          TableCalendar(
-            firstDay: DateTime.utc(2020, 1, 1),
-            lastDay: DateTime.utc(2030, 12, 31),
-            focusedDay: _focusedDay,
-            calendarFormat: _calendarFormat,
-            selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
-            onDaySelected: (selectedDay, focusedDay) {
-              setState(() {
-                _selectedDay = selectedDay;
-                _focusedDay = focusedDay;
-              });
-            },
-            onFormatChanged: (format) {
-              setState(() {
-                _calendarFormat = format;
-              });
-            },
-            onPageChanged: (focusedDay) {
-              _focusedDay = focusedDay;
-            },
-            calendarBuilders: CalendarBuilders(
-              markerBuilder: (context, day, events) {
-                return Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: _buildEventMarkers(day),
-                );
-              },
-            ),
-          ),
-          const SizedBox(height: 20),
-          Expanded(
-            child: ListView(
-              children: _buildDetailsForSelectedDay(
-                _selectedDay ?? _focusedDay,
+    return Consumer<CalendarEventsProvider>(
+      builder: (context, provider, _) {
+        if (provider.state == CalendarLoadState.loading) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        if (provider.state == CalendarLoadState.error) {
+          return Center(
+            child: Text('Error loading calendar: ${provider.errorMessage}'),
+          );
+        }
+        return Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Calendar',
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  ),
+                  ElevatedButton.icon(
+                    onPressed: _isLoadingPresets ? null : _loadPresetData,
+                    icon:
+                        _isLoadingPresets
+                            ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                            : const Icon(Icons.data_array),
+                    label: const Text('Load Test Data'),
+                  ),
+                ],
               ),
-            ),
+              const SizedBox(height: 8),
+              TableCalendar(
+                firstDay: DateTime.utc(2020, 1, 1),
+                lastDay: DateTime.utc(2030, 12, 31),
+                focusedDay: _focusedDay,
+                calendarFormat: _calendarFormat,
+                selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
+                onDaySelected: (selectedDay, focusedDay) {
+                  setState(() {
+                    _selectedDay = selectedDay;
+                    _focusedDay = focusedDay;
+                  });
+                },
+                onFormatChanged: (format) {
+                  setState(() {
+                    _calendarFormat = format;
+                  });
+                },
+                onPageChanged: (focusedDay) {
+                  _focusedDay = focusedDay;
+                },
+                calendarBuilders: CalendarBuilders(
+                  markerBuilder: (context, day, events) {
+                    return Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: _buildEventMarkers(
+                        day,
+                        provider.emotionalEvents,
+                        provider.breathingEvents,
+                      ),
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(height: 20),
+              Expanded(
+                child: ListView(
+                  children: _buildDetailsForSelectedDay(
+                    _selectedDay ?? _focusedDay,
+                    provider.emotionalEvents,
+                    provider.breathingEvents,
+                  ),
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 }

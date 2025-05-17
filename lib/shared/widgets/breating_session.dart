@@ -15,14 +15,15 @@ class BreathingSessionScreen extends ConsumerStatefulWidget {
 }
 
 class _BreathingSessionScreenState extends ConsumerState<BreathingSessionScreen>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Timer _timer;
+    with TickerProviderStateMixin {
+  AnimationController? _controller;
+  Timer? _timer;
   String _phase = "Inhale";
   int _phaseIndex = 0;
   int _currentCycle = 1;
   List<int> _phases = [];
   bool _sessionCompleted = false;
+  bool _isDisposed = false;
 
   @override
   void initState() {
@@ -33,10 +34,16 @@ class _BreathingSessionScreenState extends ConsumerState<BreathingSessionScreen>
       widget.pattern.exhaleSeconds,
       widget.pattern.restSeconds,
     ];
-    _startPhase();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_isDisposed) {
+        _startPhase();
+      }
+    });
   }
 
   void _startPhase() {
+    if (_isDisposed) return;
+
     if (_phaseIndex == 0 && _currentCycle > widget.pattern.cycles) {
       setState(() {
         _sessionCompleted = true;
@@ -45,31 +52,55 @@ class _BreathingSessionScreenState extends ConsumerState<BreathingSessionScreen>
       return;
     }
 
+    // Dispose of previous controller if exists
+    _controller?.dispose();
+
     final duration = Duration(seconds: _phases[_phaseIndex]);
     _phase = ["Inhale", "Hold", "Exhale", "Rest"][_phaseIndex];
+
+    // Create new controller
     _controller = AnimationController(vsync: this, duration: duration)
       ..addListener(() {
-        setState(() {});
+        if (!_isDisposed && mounted) {
+          setState(() {});
+        }
       });
 
-    _controller.forward();
-    _timer = Timer(duration, _nextPhase);
+    if (!_isDisposed) {
+      _controller!.forward();
+
+      // Cancel previous timer if exists
+      _timer?.cancel();
+      _timer = Timer(duration, _nextPhase);
+    }
   }
 
   void _nextPhase() {
-    _controller.dispose();
+    if (_isDisposed || !mounted) return;
 
-    if (_phaseIndex == _phases.length - 1) {
-      _currentCycle++;
-      _phaseIndex = 0;
-    } else {
-      _phaseIndex++;
+    // Check for null before disposing
+    if (_controller != null) {
+      _controller!.dispose();
+      _controller = null;
     }
 
-    _startPhase();
+    setState(() {
+      if (_phaseIndex == _phases.length - 1) {
+        _currentCycle++;
+        _phaseIndex = 0;
+      } else {
+        _phaseIndex++;
+      }
+    });
+
+    if (!_isDisposed) {
+      _startPhase();
+    }
   }
 
   void _showRatingModal() {
+    if (!mounted) return;
+
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -80,10 +111,12 @@ class _BreathingSessionScreenState extends ConsumerState<BreathingSessionScreen>
             await ref
                 .read(breathingSessionProvider.notifier)
                 .saveSession(session);
+            if (!context.mounted) return;
             Navigator.pop(context); // Close the modal
             Navigator.pop(context); // Close the session screen
           },
           onCancel: () {
+            if (!context.mounted) return;
             Navigator.pop(context); // Close the modal
           },
         );
@@ -93,8 +126,9 @@ class _BreathingSessionScreenState extends ConsumerState<BreathingSessionScreen>
 
   @override
   void dispose() {
-    _controller.dispose();
-    _timer.cancel();
+    _isDisposed = true;
+    _timer?.cancel();
+    _controller?.dispose();
     super.dispose();
   }
 
@@ -116,15 +150,22 @@ class _BreathingSessionScreenState extends ConsumerState<BreathingSessionScreen>
                     const SizedBox(height: 40),
                     CustomPaint(
                       size: const Size(200, 200),
-                      painter: CircleBreathPainter(value: _controller.value),
+                      painter: CircleBreathPainter(
+                        value: _controller?.value ?? 0.0,
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    Text(
+                      'Cycle $_currentCycle of ${widget.pattern.cycles}',
+                      style: Theme.of(context).textTheme.titleMedium,
                     ),
                     const SizedBox(height: 20),
                     ElevatedButton(
                       onPressed: () {
-                        _timer.cancel();
+                        _timer?.cancel();
                         _showRatingModal();
                       },
-                      child: const Text("Cancel"),
+                      child: const Text("Stop Session"),
                     ),
                   ],
                 ),
@@ -143,12 +184,18 @@ class CircleBreathPainter extends CustomPainter {
     final paint =
         Paint()
           ..color = Colors.blueAccent
-          ..style = PaintingStyle.fill;
+          ..style = PaintingStyle.fill
+          ..isAntiAlias = true;
 
-    final radius = size.width / 2 * value;
-    canvas.drawCircle(size.center(Offset.zero), radius, paint);
+    final center = size.center(Offset.zero);
+    final maxRadius = size.width / 2;
+    final currentRadius = maxRadius * value;
+
+    canvas.drawCircle(center, currentRadius, paint);
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
+  bool shouldRepaint(CircleBreathPainter oldDelegate) {
+    return oldDelegate.value != value;
+  }
 }

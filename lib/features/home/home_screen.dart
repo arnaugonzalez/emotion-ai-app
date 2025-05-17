@@ -11,8 +11,13 @@ final emotionProvider = StateProvider<Emotion>((ref) => Emotion.happy);
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
 
-  Future<void> saveEmotionalRecord(EmotionalRecord record) async {
-    final url = Uri.parse('http://localhost:8000/emotional_records/');
+  Future<void> saveEmotionalRecord(
+    BuildContext context,
+    EmotionalRecord record,
+  ) async {
+    final url = Uri.parse(
+      'http://10.0.2.2:8000/emotional_records/',
+    ); // Use 10.0.2.2 for emulator
     try {
       final response = await http.post(
         url,
@@ -27,7 +32,14 @@ class HomeScreen extends ConsumerWidget {
       // Save the record locally if the HTTP call fails
       final sqliteHelper = SQLiteHelper();
       await sqliteHelper.insertEmotionalRecord(record);
-      print('Saved emotional record locally due to error: $e');
+      //logger.i('Saved emotional record locally due to error: $e');
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('No connection to backend. Saved locally.'),
+          ),
+        );
+      }
     }
   }
 
@@ -82,7 +94,8 @@ class HomeScreen extends ConsumerWidget {
                 );
 
                 try {
-                  await saveEmotionalRecord(record);
+                  await saveEmotionalRecord(context, record);
+                  if (!context.mounted) return;
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       content: Text(
@@ -91,8 +104,11 @@ class HomeScreen extends ConsumerWidget {
                     ),
                   );
                 } catch (e) {
+                  if (!context.mounted) return;
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Failed to save emotional record')),
+                    const SnackBar(
+                      content: Text('Failed to save emotional record'),
+                    ),
                   );
                 }
               },

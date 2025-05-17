@@ -35,14 +35,14 @@ extension EmotionExtension on Emotion {
 }
 
 class EmotionalRecord {
-  final int? id; // Add this field
+  final int? id;
   final DateTime date;
   final String source;
   final String description;
   final Emotion emotion;
 
   EmotionalRecord({
-    this.id, // Add this parameter
+    this.id,
     required this.date,
     required this.source,
     required this.description,

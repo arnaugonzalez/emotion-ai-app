@@ -20,25 +20,57 @@ class MainScaffold extends StatelessWidget {
                 '/calendar',
                 '/color_wheel',
                 '/breathing_menu',
+                '/all_records',
+                '/therapy_chat',
+                '/profile',
               ];
               context.go(routes[index]);
             },
-            destinations: const [
-              NavigationRailDestination(
+            destinations: [
+              const NavigationRailDestination(
                 icon: Icon(Icons.home),
-                label: Text('Inici'),
+                label: Text('How are you?'),
               ),
-              NavigationRailDestination(
+              const NavigationRailDestination(
                 icon: Icon(Icons.calendar_month),
-                label: Text('Calendari'),
+                label: Text('Calendar'),
               ),
-              NavigationRailDestination(
+              const NavigationRailDestination(
                 icon: Icon(Icons.palette),
-                label: Text('Emocions'),
+                label: Text('Color Wheel'),
               ),
-              NavigationRailDestination(
+              const NavigationRailDestination(
                 icon: Icon(Icons.music_note),
-                label: Text('Respiracions'),
+                label: Text('Breathing'),
+              ),
+              const NavigationRailDestination(
+                icon: Icon(Icons.list_alt),
+                label: Text('All Records'),
+              ),
+
+              // Custom padding creates a visual separation
+              NavigationRailDestination(
+                padding: const EdgeInsets.only(top: 24), // Adds space above
+                icon: const Icon(
+                  Icons.chat_bubble_outline,
+                  color: Colors.green, // Distinctive color
+                ),
+                selectedIcon: const Icon(
+                  Icons.chat_bubble,
+                  color: Colors.green,
+                ),
+                label: const Text(
+                  'Talk it Through',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ),
+
+              // Profile at the bottom
+              NavigationRailDestination(
+                padding: const EdgeInsets.only(top: 32), // Adds space above
+                icon: const Icon(Icons.person_outline),
+                selectedIcon: const Icon(Icons.person),
+                label: const Text('Profile'),
               ),
             ],
             labelType: NavigationRailLabelType.all,
@@ -58,6 +90,12 @@ class MainScaffold extends StatelessWidget {
         return 2;
       case '/breathing_menu':
         return 3;
+      case '/all_records':
+        return 4;
+      case '/therapy_chat':
+        return 5;
+      case '/profile':
+        return 6;
       default:
         return 0;
     }
