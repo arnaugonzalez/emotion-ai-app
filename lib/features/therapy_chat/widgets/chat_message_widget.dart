@@ -27,7 +27,7 @@ class ChatMessageWidget extends StatelessWidget {
             borderRadius: BorderRadius.circular(16),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 10),
+                color: Colors.black.withAlpha(10),
                 blurRadius: 2,
                 offset: const Offset(0, 2),
               ),
@@ -44,7 +44,7 @@ class ChatMessageWidget extends StatelessWidget {
                     size: 16,
                     color:
                         isUser
-                            ? Colors.white.withValues(alpha: 200)
+                            ? Colors.white.withAlpha(200)
                             : Theme.of(
                               context,
                             ).colorScheme.onSecondaryContainer,
@@ -57,11 +57,11 @@ class ChatMessageWidget extends StatelessWidget {
                       fontSize: 12,
                       color:
                           isUser
-                              ? Colors.white.withValues(alpha: 230)
+                              ? Colors.white.withAlpha(230)
                               : Theme.of(context)
                                   .colorScheme
                                   .onSecondaryContainer
-                                  .withValues(alpha: 200),
+                                  .withAlpha(200),
                     ),
                   ),
                 ],
