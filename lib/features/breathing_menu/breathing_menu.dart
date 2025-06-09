@@ -194,14 +194,14 @@ class _BreathingMenuScreenState extends State<BreathingMenuScreen> {
 
   Widget _buildInfoChip(String label, String value, Color color) {
     return Chip(
-      backgroundColor: color.withValues(alpha: 38),
-      side: BorderSide(color: color.withValues(alpha: 77)),
+      backgroundColor: color.withAlpha(38),
+      side: BorderSide(color: color.withAlpha(77)),
       materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
       visualDensity: VisualDensity.compact,
       labelPadding: const EdgeInsets.symmetric(horizontal: 2),
       padding: const EdgeInsets.symmetric(horizontal: 4),
       avatar: CircleAvatar(
-        backgroundColor: color.withValues(alpha: 51),
+        backgroundColor: color.withAlpha(51),
         radius: 10,
         child: Text(
           value,

@@ -75,7 +75,7 @@ class _ColorWheelScreenState extends State<ColorWheelScreen> {
                       ),
                       selected: isSelected,
                       selectedColor: emotion.color,
-                      backgroundColor: emotion.color.withValues(alpha: 0.8),
+                      backgroundColor: emotion.color.withOpacity(0.8),
                       onSelected: (_) {
                         setState(() {
                           selectedEmotion = emotion;
