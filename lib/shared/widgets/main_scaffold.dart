@@ -10,81 +10,98 @@ class MainScaffold extends StatelessWidget {
     final currentRoute = GoRouterState.of(context).uri.toString();
     final isLandscape =
         MediaQuery.of(context).orientation == Orientation.landscape;
+    final iconSize = 32.0; // Increased icon size
 
     final navigationDestinations = [
       NavigationDestination(
-        icon: Icon(Icons.home, size: 28),
-        selectedIcon: Icon(Icons.home_filled, size: 28),
+        icon: Icon(Icons.home_outlined, size: iconSize),
+        selectedIcon: Icon(Icons.home, size: iconSize),
         label: '',
       ),
       NavigationDestination(
-        icon: Icon(Icons.calendar_month, size: 28),
-        selectedIcon: Icon(Icons.calendar_month_outlined, size: 28),
+        icon: Icon(Icons.calendar_today_outlined, size: iconSize),
+        selectedIcon: Icon(Icons.calendar_today, size: iconSize),
         label: '',
       ),
       NavigationDestination(
-        icon: Icon(Icons.palette, size: 28),
-        selectedIcon: Icon(Icons.palette_outlined, size: 28),
+        icon: Icon(Icons.palette_outlined, size: iconSize),
+        selectedIcon: Icon(Icons.palette, size: iconSize),
         label: '',
       ),
       NavigationDestination(
-        icon: Icon(Icons.music_note, size: 28),
-        selectedIcon: Icon(Icons.music_note_outlined, size: 28),
+        icon: Icon(Icons.self_improvement_outlined, size: iconSize),
+        selectedIcon: Icon(Icons.self_improvement, size: iconSize),
         label: '',
       ),
       NavigationDestination(
-        icon: Icon(Icons.list_alt, size: 28),
-        selectedIcon: Icon(Icons.list_alt_outlined, size: 28),
+        icon: Icon(Icons.analytics_outlined, size: iconSize),
+        selectedIcon: Icon(Icons.analytics, size: iconSize),
         label: '',
       ),
       NavigationDestination(
-        icon: Icon(Icons.chat_bubble_outline, size: 28, color: Colors.green),
-        selectedIcon: Icon(Icons.chat_bubble, size: 28, color: Colors.green),
+        icon: Icon(
+          Icons.psychology_outlined,
+          size: iconSize,
+          color: Colors.green,
+        ),
+        selectedIcon: Icon(
+          Icons.psychology,
+          size: iconSize,
+          color: Colors.green,
+        ),
         label: '',
       ),
       NavigationDestination(
-        icon: Icon(Icons.person_outline, size: 28),
-        selectedIcon: Icon(Icons.person, size: 28),
+        icon: Icon(Icons.person_outline, size: iconSize),
+        selectedIcon: Icon(Icons.person, size: iconSize),
         label: '',
       ),
     ];
 
     final railDestinations = [
       NavigationRailDestination(
-        icon: Icon(Icons.home, size: 28),
-        selectedIcon: Icon(Icons.home_filled, size: 28),
+        icon: Icon(Icons.home_outlined, size: iconSize),
+        selectedIcon: Icon(Icons.home, size: iconSize),
         label: const Text(''),
       ),
       NavigationRailDestination(
-        icon: Icon(Icons.calendar_month, size: 28),
-        selectedIcon: Icon(Icons.calendar_month_outlined, size: 28),
+        icon: Icon(Icons.calendar_today_outlined, size: iconSize),
+        selectedIcon: Icon(Icons.calendar_today, size: iconSize),
         label: const Text(''),
       ),
       NavigationRailDestination(
-        icon: Icon(Icons.palette, size: 28),
-        selectedIcon: Icon(Icons.palette_outlined, size: 28),
+        icon: Icon(Icons.palette_outlined, size: iconSize),
+        selectedIcon: Icon(Icons.palette, size: iconSize),
         label: const Text(''),
       ),
       NavigationRailDestination(
-        icon: Icon(Icons.music_note, size: 28),
-        selectedIcon: Icon(Icons.music_note_outlined, size: 28),
+        icon: Icon(Icons.self_improvement_outlined, size: iconSize),
+        selectedIcon: Icon(Icons.self_improvement, size: iconSize),
         label: const Text(''),
       ),
       NavigationRailDestination(
-        icon: Icon(Icons.list_alt, size: 28),
-        selectedIcon: Icon(Icons.list_alt_outlined, size: 28),
+        icon: Icon(Icons.analytics_outlined, size: iconSize),
+        selectedIcon: Icon(Icons.analytics, size: iconSize),
         label: const Text(''),
       ),
       NavigationRailDestination(
         padding: const EdgeInsets.only(top: 32),
-        icon: Icon(Icons.chat_bubble_outline, size: 28, color: Colors.green),
-        selectedIcon: Icon(Icons.chat_bubble, size: 28, color: Colors.green),
+        icon: Icon(
+          Icons.psychology_outlined,
+          size: iconSize,
+          color: Colors.green,
+        ),
+        selectedIcon: Icon(
+          Icons.psychology,
+          size: iconSize,
+          color: Colors.green,
+        ),
         label: const Text(''),
       ),
       NavigationRailDestination(
         padding: const EdgeInsets.only(top: 48),
-        icon: Icon(Icons.person_outline, size: 28),
-        selectedIcon: Icon(Icons.person, size: 28),
+        icon: Icon(Icons.person_outline, size: iconSize),
+        selectedIcon: Icon(Icons.person, size: iconSize),
         label: const Text(''),
       ),
     ];
@@ -113,8 +130,8 @@ class MainScaffold extends StatelessWidget {
               destinations: railDestinations,
               labelType: NavigationRailLabelType.none,
               useIndicator: true,
-              minWidth: 72,
-              minExtendedWidth: 72,
+              minWidth: 80,
+              minExtendedWidth: 80,
             ),
             const VerticalDivider(thickness: 1, width: 1),
             Expanded(child: child),
@@ -128,7 +145,7 @@ class MainScaffold extends StatelessWidget {
           selectedIndex: _routeToIndex(currentRoute),
           onDestinationSelected: onDestinationSelected,
           destinations: navigationDestinations,
-          height: 72,
+          height: 80,
           labelBehavior: NavigationDestinationLabelBehavior.alwaysHide,
         ),
       );

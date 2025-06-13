@@ -1,9 +1,22 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:logger/logger.dart';
+
+final logger = Logger();
+
+class AdminPinConfigError extends Error {
+  final String message;
+  AdminPinConfigError(this.message);
+
+  @override
+  String toString() => 'AdminPinConfigError: $message';
+}
 
 // Isolate function for PIN verification
 Future<bool> _verifyPinInIsolate(Map<String, String> data) async {
@@ -23,7 +36,7 @@ class PinCodeScreen extends ConsumerStatefulWidget {
 
 class _PinCodeScreenState extends ConsumerState<PinCodeScreen> {
   static const String _pinKey = 'user_pin_code';
-  static const String _adminCode = '981563119939';
+  late final String _adminCode;
   static const int _maxLength = 12;
 
   String _enteredPin = '';
@@ -35,7 +48,57 @@ class _PinCodeScreenState extends ConsumerState<PinCodeScreen> {
   @override
   void initState() {
     super.initState();
+    _validateAndInitializeAdminPin();
     _initPrefs();
+  }
+
+  void _validateAndInitializeAdminPin() {
+    final adminPin = dotenv.env['ADMIN_PIN'];
+
+    if (adminPin == null || adminPin.isEmpty) {
+      const message =
+          'Admin PIN not found in environment variables. Please set ADMIN_PIN in your .env file.';
+      logger.e(message);
+      _showFatalError(message);
+      throw AdminPinConfigError(message);
+    }
+
+    _adminCode = adminPin;
+  }
+
+  void _showFatalError(String message) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Fatal Error'),
+          content: SingleChildScrollView(
+            child: ListBody(
+              children: [
+                const Text(
+                  'The application cannot continue due to a security configuration error:',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 16),
+                Text(message),
+                const SizedBox(height: 16),
+                const Text(
+                  'Please fix the configuration and restart the application.',
+                  style: TextStyle(fontStyle: FontStyle.italic),
+                ),
+              ],
+            ),
+          ),
+          actions: <Widget>[
+            TextButton(
+              child: const Text('Exit App'),
+              onPressed: () => SystemNavigator.pop(),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   Future<void> _initPrefs() async {
