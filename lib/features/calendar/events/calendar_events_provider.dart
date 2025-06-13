@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:emotion_ai/shared/models/emotional_record.dart';
 import 'package:emotion_ai/shared/models/breathing_session_data.dart';
 import 'package:emotion_ai/shared/services/sqlite_helper.dart';
@@ -9,6 +10,53 @@ import 'package:logger/logger.dart';
 final logger = Logger();
 
 enum CalendarLoadState { loading, loaded, error }
+
+// Isolate function for processing emotional records
+Future<Map<DateTime, List<EmotionalRecord>>> _processEmotionalRecordsInIsolate(
+  List<EmotionalRecord> records,
+) async {
+  final Map<DateTime, List<EmotionalRecord>> events = {};
+  for (var record in records) {
+    final normalizedDate = DateTime(
+      record.date.year,
+      record.date.month,
+      record.date.day,
+    );
+    events[normalizedDate] = events[normalizedDate] ?? [];
+    events[normalizedDate]!.add(record);
+  }
+  return events;
+}
+
+// Isolate function for processing breathing sessions
+Future<Map<DateTime, List<BreathingSessionData>>>
+_processBreathingSessionsInIsolate(List<BreathingSessionData> sessions) async {
+  final Map<DateTime, List<BreathingSessionData>> events = {};
+  for (var session in sessions) {
+    final normalizedDate = DateTime(
+      session.date.year,
+      session.date.month,
+      session.date.day,
+    );
+    events[normalizedDate] = events[normalizedDate] ?? [];
+    events[normalizedDate]!.add(session);
+  }
+  return events;
+}
+
+// Isolate function for parsing JSON data
+Future<List<T>> _parseJsonDataInIsolate<T>(Map<String, dynamic> data) async {
+  final List<dynamic> jsonData = data['data'];
+  final String type = data['type'];
+
+  if (type == 'emotional') {
+    return jsonData.map((item) => EmotionalRecord.fromMap(item)).toList()
+        as List<T>;
+  } else {
+    return jsonData.map((item) => BreathingSessionData.fromMap(item)).toList()
+        as List<T>;
+  }
+}
 
 class CalendarEventsProvider extends ChangeNotifier {
   CalendarLoadState state = CalendarLoadState.loading;
@@ -39,16 +87,24 @@ class CalendarEventsProvider extends ChangeNotifier {
 
       if (emotionalResponse.statusCode == 200 &&
           breathingResponse.statusCode == 200) {
-        final List<dynamic> emotionalData = jsonDecode(emotionalResponse.body);
-        final List<dynamic> breathingData = jsonDecode(breathingResponse.body);
-
-        _processEmotionalRecords(
-          emotionalData.map((item) => EmotionalRecord.fromMap(item)).toList(),
+        // Parse JSON data in isolates
+        final emotionalData = await compute(
+          _parseJsonDataInIsolate<EmotionalRecord>,
+          {'data': jsonDecode(emotionalResponse.body), 'type': 'emotional'},
         );
-        _processBreathingSessions(
-          breathingData
-              .map((item) => BreathingSessionData.fromMap(item))
-              .toList(),
+        final breathingData = await compute(
+          _parseJsonDataInIsolate<BreathingSessionData>,
+          {'data': jsonDecode(breathingResponse.body), 'type': 'breathing'},
+        );
+
+        // Process records in isolates
+        emotionalEvents = await compute(
+          _processEmotionalRecordsInIsolate,
+          emotionalData,
+        );
+        breathingEvents = await compute(
+          _processBreathingSessionsInIsolate,
+          breathingData,
         );
 
         state = CalendarLoadState.loaded;
@@ -60,22 +116,23 @@ class CalendarEventsProvider extends ChangeNotifier {
     } catch (e) {
       logger.w('Backend connection failed: $e. Loading from local storage.');
 
-      // Show a SnackBar if callback is provided
       if (onBackendError != null) {
         onBackendError('No connection with backend. Loading local data.');
       }
 
-      // Fallback to SQLite
       try {
         final emotionalRecords = await sqliteHelper.getEmotionalRecords();
         final breathingSessions = await sqliteHelper.getBreathingSessions();
 
-        logger.i(
-          'Loaded ${emotionalRecords.length} emotional records and ${breathingSessions.length} breathing sessions from SQLite',
+        // Process local data in isolates
+        emotionalEvents = await compute(
+          _processEmotionalRecordsInIsolate,
+          emotionalRecords,
         );
-
-        _processEmotionalRecords(emotionalRecords);
-        _processBreathingSessions(breathingSessions);
+        breathingEvents = await compute(
+          _processBreathingSessionsInIsolate,
+          breathingSessions,
+        );
 
         state = CalendarLoadState.loaded;
         notifyListeners();
@@ -86,27 +143,5 @@ class CalendarEventsProvider extends ChangeNotifier {
         notifyListeners();
       }
     }
-  }
-
-  /// Process emotional records into the events map
-  void _processEmotionalRecords(List<EmotionalRecord> records) {
-    emotionalEvents = {};
-    for (var record in records) {
-      final normalizedDate = _normalizeDate(record.date);
-      emotionalEvents[normalizedDate] = emotionalEvents[normalizedDate] ?? [];
-      emotionalEvents[normalizedDate]!.add(record);
-    }
-    logger.i('Processed ${records.length} emotional records for calendar');
-  }
-
-  /// Process breathing sessions into the events map
-  void _processBreathingSessions(List<BreathingSessionData> sessions) {
-    breathingEvents = {};
-    for (var session in sessions) {
-      final normalizedDate = _normalizeDate(session.date);
-      breathingEvents[normalizedDate] = breathingEvents[normalizedDate] ?? [];
-      breathingEvents[normalizedDate]!.add(session);
-    }
-    logger.i('Processed ${sessions.length} breathing sessions for calendar');
   }
 }

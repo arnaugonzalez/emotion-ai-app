@@ -8,78 +8,131 @@ class MainScaffold extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final currentRoute = GoRouterState.of(context).uri.toString();
+    final isLandscape =
+        MediaQuery.of(context).orientation == Orientation.landscape;
 
-    return Scaffold(
-      body: Row(
-        children: [
-          NavigationRail(
-            selectedIndex: _routeToIndex(currentRoute),
-            onDestinationSelected: (index) {
-              final routes = [
-                '/',
-                '/calendar',
-                '/color_wheel',
-                '/breathing_menu',
-                '/all_records',
-                '/therapy_chat',
-                '/profile',
-              ];
-              context.go(routes[index]);
-            },
-            destinations: [
-              const NavigationRailDestination(
-                icon: Icon(Icons.home),
-                label: Text('How are you?'),
-              ),
-              const NavigationRailDestination(
-                icon: Icon(Icons.calendar_month),
-                label: Text('Calendar'),
-              ),
-              const NavigationRailDestination(
-                icon: Icon(Icons.palette),
-                label: Text('Color Wheel'),
-              ),
-              const NavigationRailDestination(
-                icon: Icon(Icons.music_note),
-                label: Text('Breathing'),
-              ),
-              const NavigationRailDestination(
-                icon: Icon(Icons.list_alt),
-                label: Text('All Records'),
-              ),
-
-              // Custom padding creates a visual separation
-              NavigationRailDestination(
-                padding: const EdgeInsets.only(top: 24), // Adds space above
-                icon: const Icon(
-                  Icons.chat_bubble_outline,
-                  color: Colors.green, // Distinctive color
-                ),
-                selectedIcon: const Icon(
-                  Icons.chat_bubble,
-                  color: Colors.green,
-                ),
-                label: const Text(
-                  'Talk it Through',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-              ),
-
-              // Profile at the bottom
-              NavigationRailDestination(
-                padding: const EdgeInsets.only(top: 32), // Adds space above
-                icon: const Icon(Icons.person_outline),
-                selectedIcon: const Icon(Icons.person),
-                label: const Text('Profile'),
-              ),
-            ],
-            labelType: NavigationRailLabelType.all,
-          ),
-          const VerticalDivider(thickness: 1, width: 1),
-          Expanded(child: child),
-        ],
+    final navigationDestinations = [
+      NavigationDestination(
+        icon: Icon(Icons.home, size: 28),
+        selectedIcon: Icon(Icons.home_filled, size: 28),
+        label: '',
       ),
-    );
+      NavigationDestination(
+        icon: Icon(Icons.calendar_month, size: 28),
+        selectedIcon: Icon(Icons.calendar_month_outlined, size: 28),
+        label: '',
+      ),
+      NavigationDestination(
+        icon: Icon(Icons.palette, size: 28),
+        selectedIcon: Icon(Icons.palette_outlined, size: 28),
+        label: '',
+      ),
+      NavigationDestination(
+        icon: Icon(Icons.music_note, size: 28),
+        selectedIcon: Icon(Icons.music_note_outlined, size: 28),
+        label: '',
+      ),
+      NavigationDestination(
+        icon: Icon(Icons.list_alt, size: 28),
+        selectedIcon: Icon(Icons.list_alt_outlined, size: 28),
+        label: '',
+      ),
+      NavigationDestination(
+        icon: Icon(Icons.chat_bubble_outline, size: 28, color: Colors.green),
+        selectedIcon: Icon(Icons.chat_bubble, size: 28, color: Colors.green),
+        label: '',
+      ),
+      NavigationDestination(
+        icon: Icon(Icons.person_outline, size: 28),
+        selectedIcon: Icon(Icons.person, size: 28),
+        label: '',
+      ),
+    ];
+
+    final railDestinations = [
+      NavigationRailDestination(
+        icon: Icon(Icons.home, size: 28),
+        selectedIcon: Icon(Icons.home_filled, size: 28),
+        label: const Text(''),
+      ),
+      NavigationRailDestination(
+        icon: Icon(Icons.calendar_month, size: 28),
+        selectedIcon: Icon(Icons.calendar_month_outlined, size: 28),
+        label: const Text(''),
+      ),
+      NavigationRailDestination(
+        icon: Icon(Icons.palette, size: 28),
+        selectedIcon: Icon(Icons.palette_outlined, size: 28),
+        label: const Text(''),
+      ),
+      NavigationRailDestination(
+        icon: Icon(Icons.music_note, size: 28),
+        selectedIcon: Icon(Icons.music_note_outlined, size: 28),
+        label: const Text(''),
+      ),
+      NavigationRailDestination(
+        icon: Icon(Icons.list_alt, size: 28),
+        selectedIcon: Icon(Icons.list_alt_outlined, size: 28),
+        label: const Text(''),
+      ),
+      NavigationRailDestination(
+        padding: const EdgeInsets.only(top: 32),
+        icon: Icon(Icons.chat_bubble_outline, size: 28, color: Colors.green),
+        selectedIcon: Icon(Icons.chat_bubble, size: 28, color: Colors.green),
+        label: const Text(''),
+      ),
+      NavigationRailDestination(
+        padding: const EdgeInsets.only(top: 48),
+        icon: Icon(Icons.person_outline, size: 28),
+        selectedIcon: Icon(Icons.person, size: 28),
+        label: const Text(''),
+      ),
+    ];
+
+    final routes = [
+      '/',
+      '/calendar',
+      '/color_wheel',
+      '/breathing_menu',
+      '/all_records',
+      '/therapy_chat',
+      '/profile',
+    ];
+
+    void onDestinationSelected(int index) {
+      context.go(routes[index]);
+    }
+
+    if (isLandscape) {
+      return Scaffold(
+        body: Row(
+          children: [
+            NavigationRail(
+              selectedIndex: _routeToIndex(currentRoute),
+              onDestinationSelected: onDestinationSelected,
+              destinations: railDestinations,
+              labelType: NavigationRailLabelType.none,
+              useIndicator: true,
+              minWidth: 72,
+              minExtendedWidth: 72,
+            ),
+            const VerticalDivider(thickness: 1, width: 1),
+            Expanded(child: child),
+          ],
+        ),
+      );
+    } else {
+      return Scaffold(
+        body: SafeArea(child: child),
+        bottomNavigationBar: NavigationBar(
+          selectedIndex: _routeToIndex(currentRoute),
+          onDestinationSelected: onDestinationSelected,
+          destinations: navigationDestinations,
+          height: 72,
+          labelBehavior: NavigationDestinationLabelBehavior.alwaysHide,
+        ),
+      );
+    }
   }
 
   int _routeToIndex(String route) {

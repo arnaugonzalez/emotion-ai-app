@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:emotion_ai/shared/widgets/rating_modal.dart';
 import 'dart:async';
 import '../../shared/models/breathing_pattern.dart';
@@ -108,16 +109,30 @@ class _BreathingSessionScreenState extends ConsumerState<BreathingSessionScreen>
         return RatingModal(
           pattern: widget.pattern,
           onSave: (session) async {
-            await ref
-                .read(breathingSessionProvider.notifier)
-                .saveSession(session);
-            if (!context.mounted) return;
-            Navigator.pop(context); // Close the modal
-            Navigator.pop(context); // Close the session screen
+            try {
+              await ref
+                  .read(breathingSessionProvider.notifier)
+                  .saveSession(session);
+              if (!context.mounted) return;
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Session saved successfully')),
+              );
+            } catch (e) {
+              if (!context.mounted) return;
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('Failed to save session: $e')),
+              );
+            } finally {
+              if (context.mounted) {
+                context.pop(); // Close the modal
+                context.pop(); // Return to breathing menu
+              }
+            }
           },
           onCancel: () {
             if (!context.mounted) return;
-            Navigator.pop(context); // Close the modal
+            context.pop(); // Close the modal
+            context.pop(); // Return to breathing menu
           },
         );
       },
@@ -163,6 +178,9 @@ class _BreathingSessionScreenState extends ConsumerState<BreathingSessionScreen>
                     ElevatedButton(
                       onPressed: () {
                         _timer?.cancel();
+                        setState(() {
+                          _sessionCompleted = true;
+                        });
                         _showRatingModal();
                       },
                       child: const Text("Stop Session"),

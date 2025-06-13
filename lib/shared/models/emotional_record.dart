@@ -40,6 +40,8 @@ class EmotionalRecord {
   final String source;
   final String description;
   final Emotion emotion;
+  final String? customEmotionName;
+  final int? customEmotionColor;
 
   EmotionalRecord({
     this.id,
@@ -47,28 +49,34 @@ class EmotionalRecord {
     required this.source,
     required this.description,
     required this.emotion,
+    this.customEmotionName,
+    this.customEmotionColor,
   });
 
   // Convert to DynamoDB-compatible Map
   Map<String, dynamic> toMap() {
     return {
-      'id': id, // Include id
+      'id': id,
       'date': date.toIso8601String(),
       'source': source,
       'description': description,
       'emotion': emotion.name,
-      'color': emotion.color.toARGB32().toRadixString(16), // Store color as hex
+      'customEmotionName': customEmotionName,
+      'customEmotionColor': customEmotionColor,
+      'color': emotion.color.toARGB32().toRadixString(16),
     };
   }
 
   // Create an instance from DynamoDB Map
   factory EmotionalRecord.fromMap(Map<String, dynamic> map) {
     return EmotionalRecord(
-      id: map['id'] as int?, // Map the id
+      id: map['id'] as int?,
       date: DateTime.parse(map['date']),
       source: map['source'],
       description: map['description'],
       emotion: EmotionExtension.fromName(map['emotion']),
+      customEmotionName: map['customEmotionName'] as String?,
+      customEmotionColor: map['customEmotionColor'] as int?,
     );
   }
 }

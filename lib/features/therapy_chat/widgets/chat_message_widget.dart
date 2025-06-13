@@ -16,7 +16,8 @@ class ChatMessageWidget extends StatelessWidget {
         alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
         child: Container(
           constraints: BoxConstraints(
-            maxWidth: MediaQuery.of(context).size.width * 0.75,
+            maxWidth: MediaQuery.of(context).size.width * 0.85,
+            minWidth: 100,
           ),
           padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
           decoration: BoxDecoration(
@@ -27,7 +28,7 @@ class ChatMessageWidget extends StatelessWidget {
             borderRadius: BorderRadius.circular(16),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 10),
+                color: Colors.black.withOpacity(0.1),
                 blurRadius: 2,
                 offset: const Offset(0, 2),
               ),
@@ -35,6 +36,7 @@ class ChatMessageWidget extends StatelessWidget {
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
             children: [
               Row(
                 mainAxisSize: MainAxisSize.min,
@@ -44,7 +46,7 @@ class ChatMessageWidget extends StatelessWidget {
                     size: 16,
                     color:
                         isUser
-                            ? Colors.white.withValues(alpha: 200)
+                            ? Colors.white.withOpacity(0.8)
                             : Theme.of(
                               context,
                             ).colorScheme.onSecondaryContainer,
@@ -57,11 +59,11 @@ class ChatMessageWidget extends StatelessWidget {
                       fontSize: 12,
                       color:
                           isUser
-                              ? Colors.white.withValues(alpha: 230)
+                              ? Colors.white.withOpacity(0.9)
                               : Theme.of(context)
                                   .colorScheme
                                   .onSecondaryContainer
-                                  .withValues(alpha: 200),
+                                  .withOpacity(0.8),
                     ),
                   ),
                 ],
@@ -75,6 +77,8 @@ class ChatMessageWidget extends StatelessWidget {
                           ? Colors.white
                           : Theme.of(context).colorScheme.onSecondaryContainer,
                 ),
+                softWrap: true,
+                overflow: TextOverflow.visible,
               ),
             ],
           ),

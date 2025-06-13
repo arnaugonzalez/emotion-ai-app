@@ -124,30 +124,65 @@ class _CalendarScreenState extends State<CalendarScreen> {
             .expand((entry) => entry.value)
             .toList();
 
-    return [
-      ...emotionalRecords.map(
-        (record) => Container(
-          width: 8,
-          height: 8,
-          margin: const EdgeInsets.symmetric(horizontal: 1.5),
-          decoration: BoxDecoration(
-            color: record.emotion.color,
-            shape: BoxShape.circle,
+    // Limit the number of markers to prevent overflow
+    const maxMarkers = 3;
+    final totalEvents = emotionalRecords.length + breathingSessions.length;
+
+    if (totalEvents == 0) return [];
+
+    if (totalEvents <= maxMarkers) {
+      return [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 1),
+          child: Wrap(
+            spacing: 3,
+            children: [
+              ...emotionalRecords.map(
+                (record) => Container(
+                  width: 6,
+                  height: 6,
+                  decoration: BoxDecoration(
+                    color:
+                        record.customEmotionColor != null
+                            ? Color(record.customEmotionColor!)
+                            : record.emotion.color,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              ),
+              ...breathingSessions.map(
+                (_) => Container(
+                  width: 6,
+                  height: 6,
+                  decoration: BoxDecoration(
+                    border: Border.all(color: Colors.blueAccent, width: 1),
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
-      ),
-      ...breathingSessions.map(
-        (_) => Container(
-          width: 8,
-          height: 8,
-          margin: const EdgeInsets.symmetric(horizontal: 1.5),
+      ];
+    } else {
+      // Show a counter instead when there are too many events
+      return [
+        Container(
+          padding: const EdgeInsets.all(2),
           decoration: BoxDecoration(
-            border: Border.all(color: Colors.blueAccent, width: 1.5),
-            shape: BoxShape.circle,
+            color: Theme.of(context).primaryColor.withOpacity(0.2),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Text(
+            '+$totalEvents',
+            style: TextStyle(
+              fontSize: 10,
+              color: Theme.of(context).primaryColor,
+            ),
           ),
         ),
-      ),
-    ];
+      ];
+    }
   }
 
   List<Widget> _buildDetailsForSelectedDay(
@@ -199,11 +234,15 @@ class _CalendarScreenState extends State<CalendarScreen> {
           margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           child: ListTile(
             leading: CircleAvatar(
-              backgroundColor: record.emotion.color,
+              backgroundColor:
+                  record.customEmotionColor != null
+                      ? Color(record.customEmotionColor!)
+                      : record.emotion.color,
               radius: 16,
             ),
             title: Text(
-              record.emotion.name.toUpperCase(),
+              record.customEmotionName?.toUpperCase() ??
+                  record.emotion.name.toUpperCase(),
               style: const TextStyle(fontWeight: FontWeight.bold),
             ),
             subtitle: Column(
@@ -264,15 +303,21 @@ class _CalendarScreenState extends State<CalendarScreen> {
           );
         }
         return Padding(
-          padding: const EdgeInsets.all(16.0),
+          padding: const EdgeInsets.symmetric(horizontal: 8.0),
           child: Column(
             children: [
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text(
-                    'Calendar',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  const Padding(
+                    padding: EdgeInsets.only(left: 8.0),
+                    child: Text(
+                      'Calendar',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ),
                   ElevatedButton.icon(
                     onPressed: _isLoadingPresets ? null : _loadPresetData,
@@ -309,9 +354,15 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 onPageChanged: (focusedDay) {
                   _focusedDay = focusedDay;
                 },
+                calendarStyle: const CalendarStyle(
+                  markersMaxCount: 3,
+                  markerSize: 6,
+                  markerMargin: EdgeInsets.symmetric(horizontal: 0.5),
+                ),
                 calendarBuilders: CalendarBuilders(
                   markerBuilder: (context, day, events) {
                     return Row(
+                      mainAxisSize: MainAxisSize.min,
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: _buildEventMarkers(
                         day,
@@ -322,7 +373,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                   },
                 ),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 16),
               Expanded(
                 child: ListView(
                   children: _buildDetailsForSelectedDay(

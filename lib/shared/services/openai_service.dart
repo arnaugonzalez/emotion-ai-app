@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:io';
 import 'dart:async';
 import 'package:dart_openai/dart_openai.dart';
@@ -7,59 +6,39 @@ import '../models/emotional_record.dart';
 import '../models/user_profile.dart';
 import '../models/therapy_message.dart';
 import 'package:logger/logger.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import '../models/token_usage.dart';
+import '../repositories/token_usage_repository.dart';
+import '../providers/api_providers.dart';
+import 'token_usage_isolate.dart';
+import 'therapy_context_service.dart';
+import 'token_usage_service.dart';
 
 final logger = Logger();
 
 class OpenAIService {
-  // Initialize OpenAI with API key during service creation
-  OpenAIService() {
-    final key = apiKey;
-    if (key != null && key.isNotEmpty) {
-      OpenAI.apiKey = key;
-      // Set 15-second timeout for OpenAI requests
-      OpenAI.requestsTimeOut = const Duration(seconds: 15);
+  final String apiKey;
+  final TokenUsageRepository _tokenUsageRepository;
+  final TherapyContextService _contextService;
+  final TokenUsageService _tokenUsageService;
+  static const String baseUrl = 'https://api.openai.com/v1';
+
+  OpenAIService(
+    this.apiKey,
+    this._tokenUsageRepository,
+    this._contextService,
+    this._tokenUsageService,
+  ) {
+    if (apiKey.isEmpty) {
+      throw ArgumentError('OpenAI API key cannot be empty');
     }
   }
 
-  String? get apiKey => dotenv.env['OPENAI_API_KEY'];
-
-  String _formatEmotionalRecords(List<EmotionalRecord> records) {
-    if (records.isEmpty) {
-      return "No emotional records found.";
-    }
-
-    final buffer = StringBuffer();
-    buffer.write("List of emotions and thoughts recorded from ");
-    buffer.write("${records.first.date.toIso8601String().split('T')[0]} ");
-    buffer.write("to ${records.last.date.toIso8601String().split('T')[0]}: ");
-
-    for (final record in records) {
-      final date = record.date.toIso8601String().split('T')[0];
-      buffer.write("[$date]: ${record.emotion.name.toUpperCase()}: ");
-      buffer.write("${record.description}; ");
-    }
-
-    return buffer.toString();
-  }
-
-  String _formatConversationHistory(List<TherapyMessage> messages) {
-    if (messages.isEmpty) {
-      return "No previous conversation history.";
-    }
-
-    final buffer = StringBuffer();
-    buffer.write("Recent conversation history: \n");
-
-    for (final message in messages) {
-      final formattedDate =
-          "${message.timestamp.month}/${message.timestamp.day}/${message.timestamp.year}";
-      buffer.write(
-        "[$formattedDate] ${message.role == 'user' ? 'Client' : 'Therapist'}: ${message.content}\n",
-      );
-    }
-
-    return buffer.toString();
+  // Rough estimation of tokens based on text length
+  int _estimateTokens(String text) {
+    // OpenAI uses about 4 characters per token on average
+    return (text.length / 4).ceil();
   }
 
   Future<String> getTherapyResponse({
@@ -68,59 +47,72 @@ class OpenAIService {
     required String userMessage,
     List<TherapyMessage> conversationHistory = const [],
   }) async {
-    final key = apiKey;
-    if (key == null || key.isEmpty) {
+    if (apiKey.isEmpty) {
       throw Exception(
         'API key not found. Please add your OpenAI API key to the .env file',
       );
     }
 
     try {
-      final systemContext = """
-You are a professional therapist helping a client understand their emotional patterns.
-Be empathetic, supportive, and provide insightful observations based on the client's emotional records and conversation history.
-Ask thoughtful questions. Provide actionable advice when appropriate.
-Keep responses concise (3-4 paragraphs maximum).
-Refer to past conversations when relevant, showing continuity in the therapeutic relationship.
-""";
+      // Generate efficient context using the context service
+      final context = _contextService.generateEfficientContext(
+        userProfile: userProfile,
+        emotionalRecords: emotionalRecords,
+        conversationHistory: conversationHistory,
+        currentMessage: userMessage,
+      );
 
-      final userContext =
-          userProfile?.toContextString() ??
-          "No user profile information provided.";
+      // Estimate token usage
+      final estimatedTokens = _estimateTokens(
+        [
+          context['system'],
+          context['user_context'],
+          context['emotional_context'],
+          ...context['conversation'].map((m) => m['content']),
+          context['current_message'],
+        ].join(' '),
+      );
 
-      final emotionalContext = _formatEmotionalRecords(emotionalRecords);
-      final historyContext = _formatConversationHistory(conversationHistory);
+      // Check if we have enough tokens
+      final canProceed = await _tokenUsageService.canMakeRequest(
+        estimatedTokens,
+      );
+      if (!canProceed) {
+        return "I apologize, but you have reached your daily token usage limit. Please try again tomorrow or contact support if you need an increased limit.";
+      }
 
-      // Create system message
+      // Create system message with minimal prompt
       final systemMessage = OpenAIChatCompletionChoiceMessageModel(
         content: [
-          OpenAIChatCompletionChoiceMessageContentItemModel.text(systemContext),
+          OpenAIChatCompletionChoiceMessageContentItemModel.text(
+            context['system'],
+          ),
         ],
         role: OpenAIChatMessageRole.system,
       );
 
-      // Create context message with user profile, emotional records, and conversation history
+      // Create context message with compressed user context and emotional context
       final contextMessage = OpenAIChatCompletionChoiceMessageModel(
         content: [
           OpenAIChatCompletionChoiceMessageContentItemModel.text(
-            "$userContext\n\n$emotionalContext\n\n$historyContext",
+            "${context['user_context']}\n${context['emotional_context']}",
           ),
         ],
         role: OpenAIChatMessageRole.user,
       );
 
-      // Add previous messages from conversation history to maintain context
+      // Convert compressed conversation history to OpenAI messages
       final previousMessages =
-          conversationHistory
+          (context['conversation'] as List<Map<String, String>>)
               .map(
                 (msg) => OpenAIChatCompletionChoiceMessageModel(
                   content: [
                     OpenAIChatCompletionChoiceMessageContentItemModel.text(
-                      msg.content,
+                      msg['content']!,
                     ),
                   ],
                   role:
-                      msg.role == 'user'
+                      msg['role'] == 'user'
                           ? OpenAIChatMessageRole.user
                           : OpenAIChatMessageRole.assistant,
                 ),
@@ -130,7 +122,9 @@ Refer to past conversations when relevant, showing continuity in the therapeutic
       // Create user message with the current query
       final currentUserMessage = OpenAIChatCompletionChoiceMessageModel(
         content: [
-          OpenAIChatCompletionChoiceMessageContentItemModel.text(userMessage),
+          OpenAIChatCompletionChoiceMessageContentItemModel.text(
+            context['current_message'],
+          ),
         ],
         role: OpenAIChatMessageRole.user,
       );
@@ -138,23 +132,36 @@ Refer to past conversations when relevant, showing continuity in the therapeutic
       // Combine all messages for the API request
       final messages = [
         systemMessage,
-        contextMessage,
-        ...previousMessages.length > 6
-            ? previousMessages.sublist(previousMessages.length - 6)
-            : previousMessages,
+        if (context['user_context'].isNotEmpty ||
+            context['emotional_context'].isNotEmpty)
+          contextMessage,
+        ...previousMessages,
         currentUserMessage,
       ];
 
       // Use dart_openai package to make the request
       final chatCompletion = await OpenAI.instance.chat.create(
-        model: "gpt-4o-mini", // Use gpt-4o-mini or appropriate model
+        model: "gpt-3.5-turbo",
         messages: messages,
         temperature: 0.7,
+        maxTokens: 150, // Limit response length
       );
 
-      // Extract text content from the response, handling potential null case
+      // Extract text content from the response
       final content = chatCompletion.choices.first.message.content;
       if (content != null && content.isNotEmpty && content.first.text != null) {
+        // Record token usage
+        final usage = chatCompletion.usage;
+        await _tokenUsageService.recordTokenUsage(
+          usage.promptTokens,
+          usage.completionTokens,
+          TokenUsage.calculateCost(
+            "gpt-3.5-turbo",
+            usage.promptTokens,
+            usage.completionTokens,
+          ),
+        );
+
         return content.first.text!;
       }
       return "No response received from the AI assistant.";
@@ -175,9 +182,109 @@ Refer to past conversations when relevant, showing continuity in the therapeutic
       return "I'm sorry, I encountered an unexpected error. Please try again later.";
     }
   }
+
+  Future<Map<String, dynamic>> chatCompletion({
+    required List<Map<String, String>> messages,
+    String model = 'gpt-3.5-turbo',
+    double temperature = 0.7,
+    int? maxTokens,
+  }) async {
+    try {
+      // Estimate token usage
+      final estimatedTokens = messages.fold<int>(
+        0,
+        (sum, msg) => sum + _estimateTokens(msg['content'] ?? ''),
+      );
+
+      // Check if we have enough tokens
+      final canProceed = await _tokenUsageService.canMakeRequest(
+        estimatedTokens,
+      );
+      if (!canProceed) {
+        throw Exception('Daily token usage limit exceeded');
+      }
+
+      final response = await http.post(
+        Uri.parse('$baseUrl/chat/completions'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $apiKey',
+        },
+        body: jsonEncode({
+          'model': model,
+          'messages': messages,
+          'temperature': temperature,
+          if (maxTokens != null) 'max_tokens': maxTokens,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+
+        // Process token usage in isolate
+        final usage = data['usage'];
+        final tokenUsageResult = await computeTokenUsageInIsolate(
+          TokenUsageIsolateMessage(
+            model: model,
+            promptTokens: usage['prompt_tokens'],
+            completionTokens: usage['completion_tokens'],
+          ),
+        );
+
+        // Record token usage
+        await _tokenUsageService.recordTokenUsage(
+          usage['prompt_tokens'],
+          usage['completion_tokens'],
+          tokenUsageResult.costInCents,
+        );
+
+        return data;
+      } else {
+        final error = jsonDecode(response.body);
+        logger.e('OpenAI API error: ${error['error']['message']}');
+        throw Exception('OpenAI API error: ${error['error']['message']}');
+      }
+    } catch (e) {
+      logger.e('Error in chat completion: $e');
+      rethrow;
+    }
+  }
+
+  Future<String> generateResponse(String prompt) async {
+    try {
+      final response = await chatCompletion(
+        messages: [
+          {'role': 'user', 'content': prompt},
+        ],
+      );
+
+      return response['choices'][0]['message']['content'];
+    } catch (e) {
+      logger.e('Error generating response: $e');
+      return 'Error: Unable to generate response';
+    }
+  }
+
+  Future<String> continueConversation(
+    List<Map<String, String>> conversation,
+  ) async {
+    try {
+      final response = await chatCompletion(messages: conversation);
+
+      return response['choices'][0]['message']['content'];
+    } catch (e) {
+      logger.e('Error continuing conversation: $e');
+      return 'Error: Unable to continue conversation';
+    }
+  }
 }
 
 // Provider for OpenAIService
 final openAIServiceProvider = Provider<OpenAIService>((ref) {
-  return OpenAIService();
+  return OpenAIService(
+    ref.read(apiKeyProvider),
+    ref.read(tokenUsageRepositoryProvider),
+    ref.read(therapyContextServiceProvider),
+    ref.read(tokenUsageServiceProvider),
+  );
 });

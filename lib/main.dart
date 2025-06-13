@@ -10,20 +10,32 @@ import 'package:provider/provider.dart' as provider;
 import 'features/calendar/events/calendar_events_provider.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter/services.dart';
 
 final logger = Logger();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Load environment variables
-  await dotenv.load(fileName: 'assets/.env');
+  // Initialize critical features in parallel
+  final futures = await Future.wait([
+    SystemChrome.setPreferredOrientations([
+      DeviceOrientation.portraitUp,
+      DeviceOrientation.portraitDown,
+    ]),
+    SharedPreferences.getInstance(),
+    dotenv.load(fileName: 'assets/.env'),
+  ]);
+
+  final prefs = futures[1] as SharedPreferences;
+  await prefs.setBool('pin_verified', false);
 
   // Initialize OpenAI with API key
   final apiKey = dotenv.env['OPENAI_API_KEY'];
   if (apiKey != null && apiKey.isNotEmpty) {
     OpenAI.apiKey = apiKey;
-    OpenAI.showLogs = kDebugMode; // Enable logs in debug mode only
+    OpenAI.showLogs = kDebugMode;
     OpenAI.requestsTimeOut = const Duration(seconds: 30);
     logger.i("OpenAI API initialized");
   } else {
@@ -31,11 +43,8 @@ void main() async {
   }
 
   // Platform-specific optimizations
-  if (!kIsWeb) {
-    // Disable debug flags in release mode
-    if (kReleaseMode) {
-      debugPrint = (String? message, {int? wrapWidth}) {};
-    }
+  if (!kIsWeb && kReleaseMode) {
+    debugPrint = (String? message, {int? wrapWidth}) {};
   }
 
   // Set up error handling
@@ -44,29 +53,25 @@ void main() async {
     FlutterError.presentError(details);
   };
 
-  // Set up async error handling
   PlatformDispatcher.instance.onError = (error, stack) {
     logger.e('Platform error: $error\n$stack');
     return true;
   };
 
-  try {
-    await initializeOfflineStorage();
-  } catch (e, st) {
-    logger.e('Initialization failed: $e\n$st');
-  }
-
+  // Initialize app and defer non-critical operations
   runApp(
     provider.MultiProvider(
       providers: [
         provider.ChangeNotifierProvider(
           create: (_) => CalendarEventsProvider(),
         ),
-        // ...other providers
       ],
-      child: const ProviderScope(child: ErrorBoundary(child: MyApp())),
+      child: const ProviderScope(child: MyApp()),
     ),
   );
+
+  // Initialize offline storage in background after app is launched
+  Future.microtask(() => initializeOfflineStorage());
 }
 
 Future<void> initializeOfflineStorage() async {
@@ -74,10 +79,22 @@ Future<void> initializeOfflineStorage() async {
   try {
     await sqliteHelper.database.timeout(const Duration(seconds: 5));
     logger.i("Offline storage initialized");
-    await syncOfflineData(sqliteHelper).timeout(const Duration(seconds: 5));
+
+    // Only sync if there's network connectivity
+    if (await _checkConnectivity()) {
+      await syncOfflineData(sqliteHelper).timeout(const Duration(seconds: 5));
+    }
   } catch (e, st) {
     logger.e("Offline storage init failed ERROR: $e : $st");
-    // Don't throw, just log
+  }
+}
+
+Future<bool> _checkConnectivity() async {
+  try {
+    final result = await http.get(Uri.parse('http://10.0.2.2:8000/health'));
+    return result.statusCode == 200;
+  } catch (e) {
+    return false;
   }
 }
 
@@ -162,71 +179,55 @@ Future<void> syncOfflineData(SQLiteHelper sqliteHelper) async {
   }
 }
 
-class ErrorBoundary extends StatelessWidget {
-  final Widget child;
-
-  const ErrorBoundary({super.key, required this.child});
-
-  @override
-  Widget build(BuildContext context) {
-    ErrorWidget.builder = (FlutterErrorDetails details) {
-      return Material(
-        child: Container(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(Icons.error_outline, color: Colors.red, size: 48),
-              const SizedBox(height: 16),
-              const Text(
-                'Oops! Something went wrong.',
-                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                details.exception.toString(),
-                style: const TextStyle(color: Colors.red),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: () {
-                  Navigator.pushNamedAndRemoveUntil(
-                    context,
-                    '/',
-                    (route) => false,
-                  );
-                },
-                child: const Text('Return to Home'),
-              ),
-            ],
-          ),
-        ),
-      );
-    };
-
-    return child;
-  }
-}
-
-class MyApp extends ConsumerWidget {
+class MyApp extends ConsumerStatefulWidget {
   const MyApp({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.detached) {
+      // App is being killed or sent to background
+      ref.read(isFirstLaunchProvider.notifier).state = true;
+      SharedPreferences.getInstance().then((prefs) {
+        prefs.setBool('pin_verified', false);
+      });
+    } else if (state == AppLifecycleState.resumed) {
+      // App is being resumed
+      ref.read(isFirstLaunchProvider.notifier).state = true;
+      SharedPreferences.getInstance().then((prefs) {
+        prefs.setBool('pin_verified', false);
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final router = ref.watch(routerProvider);
+
     return MaterialApp.router(
-      routerConfig: ref.watch(routerProvider),
-      title: 'E-MOTION AI',
+      title: 'E-motion AI',
       theme: ThemeData(
+        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
         useMaterial3: true,
-        colorSchemeSeed: Colors.pinkAccent,
-        // Add more theme configurations for consistency
-        appBarTheme: const AppBarTheme(centerTitle: true, elevation: 0),
-        elevatedButtonTheme: ElevatedButtonThemeData(
-          style: ElevatedButton.styleFrom(minimumSize: const Size(120, 48)),
-        ),
       ),
-      debugShowCheckedModeBanner: false,
+      routerConfig: router,
     );
   }
 }

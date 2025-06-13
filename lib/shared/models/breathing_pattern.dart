@@ -38,4 +38,26 @@ class BreathingPattern {
       restSeconds: map['restSeconds'] as int,
     );
   }
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is BreathingPattern &&
+        other.name == name &&
+        other.inhaleSeconds == inhaleSeconds &&
+        other.holdSeconds == holdSeconds &&
+        other.exhaleSeconds == exhaleSeconds &&
+        other.cycles == cycles &&
+        other.restSeconds == restSeconds;
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    name,
+    inhaleSeconds,
+    holdSeconds,
+    exhaleSeconds,
+    cycles,
+    restSeconds,
+  );
 }

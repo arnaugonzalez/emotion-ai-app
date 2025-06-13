@@ -287,10 +287,22 @@ class _AllRecordsScreenState extends State<AllRecordsScreen> {
           elevation: 2,
           child: ListTile(
             leading: CircleAvatar(
-              backgroundColor: record.emotion.color,
-              child: Icon(_getEmotionIcon(record.emotion), color: Colors.white),
+              backgroundColor:
+                  record.customEmotionColor != null
+                      ? Color(record.customEmotionColor!)
+                      : record.emotion.color,
+              child:
+                  record.customEmotionName != null
+                      ? Text(
+                        record.customEmotionName![0].toUpperCase(),
+                        style: const TextStyle(color: Colors.white),
+                      )
+                      : Icon(
+                        _getEmotionIcon(record.emotion),
+                        color: Colors.white,
+                      ),
             ),
-            title: Text(record.emotion.name),
+            title: Text(record.customEmotionName ?? record.emotion.name),
             subtitle: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [

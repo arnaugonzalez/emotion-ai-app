@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 import '../providers/therapy_chat_provider.dart';
 import '../widgets/chat_message_widget.dart';
 import '../../../shared/services/user_profile_service.dart';
+import '../../../shared/services/token_usage_service.dart';
+import 'package:intl/intl.dart';
 
 class TherapyChatScreen extends ConsumerStatefulWidget {
   const TherapyChatScreen({super.key});
@@ -15,6 +17,9 @@ class TherapyChatScreen extends ConsumerStatefulWidget {
 class _TherapyChatScreenState extends ConsumerState<TherapyChatScreen> {
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
+  bool _hasCheckedProfile = false;
+  bool _isLimitExceeded = false;
+
   @override
   void dispose() {
     _messageController.dispose();
@@ -26,18 +31,34 @@ class _TherapyChatScreenState extends ConsumerState<TherapyChatScreen> {
   void initState() {
     super.initState();
     _checkUserProfile();
+    _checkTokenLimit();
+  }
+
+  Future<void> _checkTokenLimit() async {
+    final tokenService = ref.read(tokenUsageServiceProvider);
+    final hasEnoughTokens = await tokenService.canMakeRequest(
+      100,
+    ); // Small test amount
+    setState(() {
+      _isLimitExceeded = !hasEnoughTokens;
+    });
   }
 
   Future<void> _checkUserProfile() async {
-    final userProfile = ref.read(userProfileProvider);
+    if (_hasCheckedProfile) return;
 
-    if (userProfile == null || !userProfile.isComplete()) {
+    final profileService = ref.read(userProfileServiceProvider);
+    final hasProfile = await profileService.hasProfile();
+
+    if (!hasProfile && mounted) {
       // Delay showing the dialog until after the build is complete
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         _showProfileSetupDialog();
       });
     }
+
+    _hasCheckedProfile = true;
   }
 
   void _scrollToBottom() {
@@ -52,12 +73,28 @@ class _TherapyChatScreenState extends ConsumerState<TherapyChatScreen> {
     }
   }
 
-  void _sendMessage() {
+  Future<void> _sendMessage() async {
     final text = _messageController.text.trim();
     if (text.isNotEmpty) {
+      // Check token limit before sending
+      final tokenService = ref.read(tokenUsageServiceProvider);
+      final hasEnoughTokens = await tokenService.canMakeRequest(
+        100,
+      ); // Small test amount
+
+      if (!hasEnoughTokens) {
+        setState(() {
+          _isLimitExceeded = true;
+        });
+        return;
+      }
+
       ref.read(therapyChatProvider.notifier).sendMessage(text);
       _messageController.clear();
       _scrollToBottom();
+
+      // Check limit after sending
+      _checkTokenLimit();
     }
   }
 
@@ -78,6 +115,49 @@ class _TherapyChatScreenState extends ConsumerState<TherapyChatScreen> {
                   context.go('/profile');
                 },
                 child: const Text('Set Up Profile'),
+              ),
+            ],
+          ),
+    );
+  }
+
+  void _showTokenLimitDialog() {
+    final now = DateTime.now();
+    final tomorrow = DateTime(now.year, now.month, now.day + 1);
+    final resetTime = DateFormat.jm().format(tomorrow);
+    final resetDate = DateFormat.yMMMd().format(tomorrow);
+
+    showDialog(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            title: const Text('Daily Token Limit Reached'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'You have reached your daily token usage limit. This helps us ensure fair usage of the AI service for all users.',
+                ),
+                const SizedBox(height: 16),
+                Text('Your limit will reset at $resetTime on $resetDate.'),
+                const SizedBox(height: 16),
+                const Text(
+                  'Need a higher limit? Consider upgrading to an admin account.',
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('OK'),
+              ),
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  context.go('/profile');
+                },
+                child: const Text('View Usage Stats'),
               ),
             ],
           ),
@@ -141,6 +221,34 @@ class _TherapyChatScreenState extends ConsumerState<TherapyChatScreen> {
       body: SafeArea(
         child: Column(
           children: [
+            // Token limit warning
+            if (_isLimitExceeded)
+              Container(
+                padding: const EdgeInsets.all(8.0),
+                color: Theme.of(context).colorScheme.errorContainer,
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.warning_rounded,
+                      color: Theme.of(context).colorScheme.error,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Daily token limit reached. The limit will reset tomorrow.',
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.onErrorContainer,
+                        ),
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: _showTokenLimitDialog,
+                      child: const Text('Learn More'),
+                    ),
+                  ],
+                ),
+              ),
+
             // Chat messages
             Expanded(
               child:
@@ -193,7 +301,10 @@ class _TherapyChatScreenState extends ConsumerState<TherapyChatScreen> {
 
             // Message input
             Container(
-              padding: const EdgeInsets.all(8.0),
+              padding: const EdgeInsets.symmetric(
+                horizontal: 8.0,
+                vertical: 4.0,
+              ),
               decoration: BoxDecoration(
                 color: Theme.of(context).colorScheme.surface,
                 boxShadow: [
@@ -204,27 +315,46 @@ class _TherapyChatScreenState extends ConsumerState<TherapyChatScreen> {
                   ),
                 ],
               ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _messageController,
-                      decoration: const InputDecoration(
-                        hintText: 'Type your message...',
-                        border: OutlineInputBorder(),
+              child: SafeArea(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Expanded(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxHeight: 120),
+                        child: TextField(
+                          controller: _messageController,
+                          enabled: !_isLimitExceeded && !chatState.isLoading,
+                          decoration: InputDecoration(
+                            hintText:
+                                _isLimitExceeded
+                                    ? 'Daily token limit reached'
+                                    : 'Type your message...',
+                            border: const OutlineInputBorder(),
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 8,
+                            ),
+                            isDense: true,
+                          ),
+                          maxLines: null,
+                          textCapitalization: TextCapitalization.sentences,
+                          onSubmitted:
+                              (_) => _isLimitExceeded ? null : _sendMessage(),
+                        ),
                       ),
-                      maxLines: null,
-                      textCapitalization: TextCapitalization.sentences,
-                      onSubmitted: (_) => _sendMessage(),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  FloatingActionButton(
-                    onPressed: chatState.isLoading ? null : _sendMessage,
-                    mini: true,
-                    child: const Icon(Icons.send),
-                  ),
-                ],
+                    const SizedBox(width: 4),
+                    IconButton(
+                      onPressed:
+                          (_isLimitExceeded || chatState.isLoading)
+                              ? null
+                              : _sendMessage,
+                      icon: const Icon(Icons.send),
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                  ],
+                ),
               ),
             ),
           ],

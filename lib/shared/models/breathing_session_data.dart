@@ -37,4 +37,18 @@ class BreathingSessionData {
       comment: map['comment'] as String,
     );
   }
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is BreathingSessionData &&
+        other.id == id &&
+        other.date.isAtSameMomentAs(date) &&
+        other.pattern == pattern &&
+        other.rating == rating &&
+        other.comment == comment;
+  }
+
+  @override
+  int get hashCode => Object.hash(id, date, pattern, rating, comment);
 }

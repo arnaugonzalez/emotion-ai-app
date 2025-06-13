@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import '../../shared/models/breathing_pattern.dart';
 import '../../shared/services/sqlite_helper.dart';
-import '../../shared/widgets/breating_session.dart';
 import 'create_pattern_dialog.dart';
 import 'package:logger/logger.dart';
 
@@ -106,24 +106,25 @@ class _BreathingMenuScreenState extends State<BreathingMenuScreen> {
           final patterns = snapshot.data!;
           return ListView.builder(
             itemCount: patterns.length,
+            padding: const EdgeInsets.all(16),
             itemBuilder: (context, index) {
               final pattern = patterns[index];
               return Card(
-                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                margin: const EdgeInsets.only(bottom: 16),
                 child: Padding(
                   padding: const EdgeInsets.all(16),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(
-                        crossAxisAlignment: CrossAxisAlignment.center,
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Expanded(
                             child: Text(
                               pattern.name,
                               style: const TextStyle(
+                                fontSize: 20,
                                 fontWeight: FontWeight.bold,
-                                fontSize: 18,
                               ),
                             ),
                           ),
@@ -136,14 +137,9 @@ class _BreathingMenuScreenState extends State<BreathingMenuScreen> {
                             ),
                             child: const Text('Start'),
                             onPressed: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder:
-                                      (_) => BreathingSessionScreen(
-                                        pattern: pattern,
-                                      ),
-                                ),
+                              context.pushNamed(
+                                'Breathing Session',
+                                extra: pattern,
                               );
                             },
                           ),
