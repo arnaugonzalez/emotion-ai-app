@@ -12,6 +12,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/services.dart';
+import 'shared/services/secure_env_service.dart';
 
 final logger = Logger();
 
@@ -31,15 +32,21 @@ void main() async {
   final prefs = futures[1] as SharedPreferences;
   await prefs.setBool('pin_verified', false);
 
-  // Initialize OpenAI with API key
-  final apiKey = dotenv.env['OPENAI_API_KEY'];
+  // Initialize secure environment service
+  final secureEnv = SecureEnvService();
+  await secureEnv.initialize();
+
+  // Initialize OpenAI with encrypted API key
+  final apiKey = await secureEnv.getSecureEnv('OPENAI_API_KEY');
   if (apiKey != null && apiKey.isNotEmpty) {
     OpenAI.apiKey = apiKey;
     OpenAI.showLogs = kDebugMode;
     OpenAI.requestsTimeOut = const Duration(seconds: 30);
     logger.i("OpenAI API initialized");
   } else {
-    logger.e("OpenAI API key not found in environment variables");
+    const message = "OpenAI API key not found or invalid";
+    logger.e(message);
+    throw StateError(message);
   }
 
   // Platform-specific optimizations

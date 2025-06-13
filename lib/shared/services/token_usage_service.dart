@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:logger/logger.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/daily_token_usage.dart';
 import '../models/user_profile.dart';
 import 'sqlite_helper.dart';
@@ -15,6 +16,14 @@ class TokenUsageService {
 
   Future<bool> canMakeRequest(int estimatedTokens) async {
     try {
+      final prefs = await SharedPreferences.getInstance();
+      final isUnlimited = prefs.getBool('unlimited_tokens') ?? false;
+
+      if (isUnlimited) {
+        logger.i('Unlimited tokens enabled - request allowed');
+        return true;
+      }
+
       final profile = await _profileService.getProfile();
       if (profile == null) {
         logger.w('No user profile found, using default token limit');

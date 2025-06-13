@@ -45,6 +45,8 @@ dependencies:
   flutter_colorpicker: ^1.0.3 # Color picker for custom emotions
   url_launcher: ^6.2.5 # For launching URLs like the personality test
   intl: ^0.19.0 # For date and number formatting
+  encrypt: ^5.0.3 # For encryption
+  crypto: ^3.0.3 # For cryptographic operations
 dev_dependencies:
   flutter_test:
     sdk: flutter

@@ -10,6 +10,11 @@
 
 ## 🚀 Quick Start
 
+### For Users
+Download the latest APK from the [Releases](../../releases) page.
+
+### For Developers
+
 1. **Clone & Install**
    ```bash
    git clone https://github.com/yourusername/emotion-ai-app.git
@@ -18,7 +23,7 @@
    ```
 
 2. **Environment Setup**
-   - Create a `.env` file in the `assets` directory
+   - Copy `.env.template` to `.env` in the `assets` directory
    - Add required configuration:
    ```env
    # OpenAI API Configuration
@@ -32,6 +37,33 @@
    ```bash
    flutter run
    ```
+
+## 🔒 Security Notes
+
+- The `.env` file is not included in the repository
+- Environment variables are encrypted at runtime
+- Each device has its own encryption key
+- Release builds use GitHub Actions secrets
+- APK is built with code obfuscation enabled
+
+## 🏗️ Build Process
+
+### Local Development Build
+```bash
+flutter build apk --debug
+```
+
+### Release Build
+1. Tag a new version:
+   ```bash
+   git tag -a v1.0.0 -m "Release version 1.0.0"
+   git push origin v1.0.0
+   ```
+2. GitHub Actions will automatically:
+   - Create a secure build
+   - Obfuscate the code
+   - Create a release with the APK
+   - Clean up sensitive data
 
 ## 🛡️ Security Requirements
 

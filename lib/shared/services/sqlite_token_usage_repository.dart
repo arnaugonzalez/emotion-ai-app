@@ -113,8 +113,11 @@ class SQLiteTokenUsageRepository implements TokenUsageRepository {
   }
 
   Future<bool> hasReachedLimit(bool isUnlimited) async {
+    if (isUnlimited) {
+      return false; // Never reached limit if unlimited
+    }
     final totalTokens = await getTotalTokens();
-    final limit = isUnlimited ? 2000000 : 200000;
+    final limit = isUnlimited ? 2500000 : 200000;
     return totalTokens >= limit;
   }
 
@@ -127,8 +130,11 @@ class SQLiteTokenUsageRepository implements TokenUsageRepository {
   }
 
   Future<int> getRemainingTokens(bool isUnlimited) async {
+    if (isUnlimited) {
+      return 999999999; // Return a large number for unlimited
+    }
     final totalTokens = await getTotalTokens();
-    final limit = isUnlimited ? 2000000 : 200000;
+    final limit = isUnlimited ? 2500000 : 200000;
     return limit - totalTokens;
   }
 }

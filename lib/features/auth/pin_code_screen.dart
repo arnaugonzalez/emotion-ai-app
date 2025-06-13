@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:logger/logger.dart';
+import '../../shared/services/secure_env_service.dart';
 
 final logger = Logger();
 
@@ -36,7 +37,7 @@ class PinCodeScreen extends ConsumerStatefulWidget {
 
 class _PinCodeScreenState extends ConsumerState<PinCodeScreen> {
   static const String _pinKey = 'user_pin_code';
-  late final String _adminCode;
+  String? _adminCode;
   static const int _maxLength = 12;
 
   String _enteredPin = '';
@@ -44,26 +45,30 @@ class _PinCodeScreenState extends ConsumerState<PinCodeScreen> {
   Timer? _obscureTimer;
   SharedPreferences? _prefs;
   bool _isProcessing = false;
+  final SecureEnvService _secureEnv = SecureEnvService();
 
   @override
   void initState() {
     super.initState();
-    _validateAndInitializeAdminPin();
-    _initPrefs();
+    _initializeScreen();
   }
 
-  void _validateAndInitializeAdminPin() {
-    final adminPin = dotenv.env['ADMIN_PIN'];
-
-    if (adminPin == null || adminPin.isEmpty) {
-      const message =
-          'Admin PIN not found in environment variables. Please set ADMIN_PIN in your .env file.';
-      logger.e(message);
-      _showFatalError(message);
-      throw AdminPinConfigError(message);
+  Future<void> _initializeScreen() async {
+    try {
+      _adminCode = await _secureEnv.getSecureEnv('ADMIN_PIN');
+      if (_adminCode == null) {
+        const message = 'Admin PIN not properly configured';
+        logger.e(message);
+        _showFatalError(message);
+        throw StateError(message);
+      }
+      await _initPrefs();
+    } catch (e) {
+      logger.e('Error initializing PIN screen: $e');
+      if (mounted) {
+        _showFatalError('Failed to initialize security settings');
+      }
     }
-
-    _adminCode = adminPin;
   }
 
   void _showFatalError(String message) {
@@ -72,19 +77,19 @@ class _PinCodeScreenState extends ConsumerState<PinCodeScreen> {
       barrierDismissible: false,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: const Text('Fatal Error'),
+          title: const Text('Security Error'),
           content: SingleChildScrollView(
             child: ListBody(
               children: [
                 const Text(
-                  'The application cannot continue due to a security configuration error:',
+                  'A critical security configuration error has occurred:',
                   style: TextStyle(fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 16),
                 Text(message),
                 const SizedBox(height: 16),
                 const Text(
-                  'Please fix the configuration and restart the application.',
+                  'The application cannot continue. Please contact support.',
                   style: TextStyle(fontStyle: FontStyle.italic),
                 ),
               ],
@@ -165,7 +170,7 @@ class _PinCodeScreenState extends ConsumerState<PinCodeScreen> {
           // Admin code entered - run in isolate
           await compute<Map<String, String>, bool>(_verifyPinInIsolate, {
             'enteredPin': _enteredPin,
-            'savedPin': _adminCode,
+            'savedPin': _adminCode!,
           });
 
           await _prefs!.setBool('unlimited_tokens', true);
