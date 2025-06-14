@@ -17,7 +17,7 @@ Download the latest APK from the [Releases](../../releases) page.
 
 1. **Clone & Install**
    ```bash
-   git clone https://github.com/yourusername/emotion-ai-app.git
+   git clone https://github.com/arnaugonzalez/emotion-ai-app.git
    cd emotion-ai-app
    flutter pub get
    ```
