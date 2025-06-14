@@ -23,8 +23,9 @@ jobs:
           flutter-version: '3.19.0'
           channel: 'stable'
 
-      - name: Create .env file
+      - name: Create assets directory and .env file
         run: |
+          mkdir -p assets
           echo "OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}" > assets/.env
           echo "ADMIN_PIN=${{ secrets.ADMIN_PIN }}" >> assets/.env
 
