@@ -1,9 +1,10 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../models/breathing_session_data.dart';
+import '../../data/models/breathing_session.dart';
+import '../../config/api_config.dart';
 import '../services/sqlite_helper.dart';
 import 'package:http/http.dart' as http;
-import 'dart:convert';
 import 'package:logger/logger.dart';
+import 'dart:convert';
 
 final logger = Logger();
 
@@ -11,13 +12,13 @@ class BreathingSessionNotifier extends StateNotifier<BreathingSessionData?> {
   BreathingSessionNotifier() : super(null);
 
   Future<void> saveSession(BreathingSessionData session) async {
-    final url = Uri.parse('http://10.0.2.2:8000/breathing_sessions/');
+    final url = Uri.parse(ApiConfig.breathingSessionsUrl());
     try {
       final response = await http
           .post(
             url,
             headers: {'Content-Type': 'application/json'},
-            body: jsonEncode(session.toMap()),
+            body: jsonEncode(session.toJson()),
           )
           .timeout(const Duration(seconds: 5));
 

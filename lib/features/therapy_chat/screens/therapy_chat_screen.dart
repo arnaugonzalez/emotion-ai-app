@@ -3,8 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../providers/therapy_chat_provider.dart';
 import '../widgets/chat_message_widget.dart';
-import '../../../shared/services/user_profile_service.dart';
-import '../../../shared/services/token_usage_service.dart';
+import '../widgets/agent_selector.dart';
+import '../../../shared/providers/user_limitations_provider.dart';
 import 'package:intl/intl.dart';
 
 class TherapyChatScreen extends ConsumerStatefulWidget {
@@ -17,48 +17,12 @@ class TherapyChatScreen extends ConsumerStatefulWidget {
 class _TherapyChatScreenState extends ConsumerState<TherapyChatScreen> {
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
-  bool _hasCheckedProfile = false;
-  bool _isLimitExceeded = false;
 
   @override
   void dispose() {
     _messageController.dispose();
     _scrollController.dispose();
     super.dispose();
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    _checkUserProfile();
-    _checkTokenLimit();
-  }
-
-  Future<void> _checkTokenLimit() async {
-    final tokenService = ref.read(tokenUsageServiceProvider);
-    final hasEnoughTokens = await tokenService.canMakeRequest(
-      100,
-    ); // Small test amount
-    setState(() {
-      _isLimitExceeded = !hasEnoughTokens;
-    });
-  }
-
-  Future<void> _checkUserProfile() async {
-    if (_hasCheckedProfile) return;
-
-    final profileService = ref.read(userProfileServiceProvider);
-    final hasProfile = await profileService.hasProfile();
-
-    if (!hasProfile && mounted) {
-      // Delay showing the dialog until after the build is complete
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        _showProfileSetupDialog();
-      });
-    }
-
-    _hasCheckedProfile = true;
   }
 
   void _scrollToBottom() {
@@ -76,74 +40,45 @@ class _TherapyChatScreenState extends ConsumerState<TherapyChatScreen> {
   Future<void> _sendMessage() async {
     final text = _messageController.text.trim();
     if (text.isNotEmpty) {
-      // Check token limit before sending
-      final tokenService = ref.read(tokenUsageServiceProvider);
-      final hasEnoughTokens = await tokenService.canMakeRequest(
-        100,
-      ); // Small test amount
+      // Check if user can make requests from backend limitations
+      final canMakeRequest = ref.read(canMakeRequestProvider);
 
-      if (!hasEnoughTokens) {
-        setState(() {
-          _isLimitExceeded = true;
-        });
+      if (!canMakeRequest) {
+        _showTokenLimitDialog();
         return;
       }
 
       ref.read(therapyChatProvider.notifier).sendMessage(text);
       _messageController.clear();
       _scrollToBottom();
-
-      // Check limit after sending
-      _checkTokenLimit();
     }
   }
 
-  void _showProfileSetupDialog() {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder:
-          (context) => AlertDialog(
-            title: const Text('Complete Your Profile'),
-            content: const Text(
-              'To get the most out of your therapy sessions, please complete your profile information first.',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () {
-                  Navigator.pop(context);
-                  context.go('/profile');
-                },
-                child: const Text('Set Up Profile'),
-              ),
-            ],
-          ),
-    );
-  }
-
   void _showTokenLimitDialog() {
-    final now = DateTime.now();
-    final tomorrow = DateTime(now.year, now.month, now.day + 1);
-    final resetTime = DateFormat.jm().format(tomorrow);
-    final resetDate = DateFormat.yMMMd().format(tomorrow);
+    final limitations = ref.read(limitationsDataProvider);
 
     showDialog(
       context: context,
       builder:
           (context) => AlertDialog(
-            title: const Text('Daily Token Limit Reached'),
+            title: const Text('Usage Limit Reached'),
             content: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'You have reached your daily token usage limit. This helps us ensure fair usage of the AI service for all users.',
+                Text(
+                  limitations?.limitMessage ??
+                      'You have reached your daily usage limit. This helps us ensure fair usage of the AI service for all users.',
                 ),
-                const SizedBox(height: 16),
-                Text('Your limit will reset at $resetTime on $resetDate.'),
+                if (limitations?.limitResetTime != null) ...[
+                  const SizedBox(height: 16),
+                  Text(
+                    'Your limit will reset at ${DateFormat.jm().format(limitations!.limitResetTime!)} on ${DateFormat.yMMMd().format(limitations.limitResetTime!)}.',
+                  ),
+                ],
                 const SizedBox(height: 16),
                 const Text(
-                  'Need a higher limit? Consider upgrading to an admin account.',
+                  'Need a higher limit? Please contact support for more information.',
                 ),
               ],
             ),
@@ -171,7 +106,7 @@ class _TherapyChatScreenState extends ConsumerState<TherapyChatScreen> {
           (context) => AlertDialog(
             title: const Text('Clear Conversation History'),
             content: const Text(
-              'This will delete your entire conversation history with the AI therapist. This action cannot be undone. Do you want to continue?',
+              'This will delete your entire conversation history with the AI assistant. This action cannot be undone. Do you want to continue?',
             ),
             actions: [
               TextButton(
@@ -199,9 +134,46 @@ class _TherapyChatScreenState extends ConsumerState<TherapyChatScreen> {
     );
   }
 
+  void _showAgentSelector() {
+    final currentAgent = ref.read(therapyChatProvider).selectedAgent;
+
+    showDialog(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            title: const Text('Switch AI Assistant'),
+            content: SingleChildScrollView(
+              child: AgentSelector(
+                selectedAgent: currentAgent,
+                onAgentChanged: (agentType) {
+                  ref.read(therapyChatProvider.notifier).changeAgent(agentType);
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        'Switched to ${agentType == 'therapy' ? 'Therapy' : 'Wellness'} Assistant',
+                      ),
+                      duration: const Duration(seconds: 2),
+                    ),
+                  );
+                },
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cancel'),
+              ),
+            ],
+          ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final chatState = ref.watch(therapyChatProvider);
+    final limitations = ref.watch(limitationsDataProvider);
+    final canMakeRequest = limitations?.canMakeRequest ?? true;
 
     if (chatState.messages.isNotEmpty) {
       _scrollToBottom();
@@ -209,8 +181,29 @@ class _TherapyChatScreenState extends ConsumerState<TherapyChatScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Talk it Through'),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('Talk it Through'),
+            Text(
+              '${chatState.selectedAgent == 'therapy' ? 'Therapy' : 'Wellness'} Assistant',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+              ),
+            ),
+          ],
+        ),
         actions: [
+          IconButton(
+            icon: Icon(
+              chatState.selectedAgent == 'therapy'
+                  ? Icons.psychology
+                  : Icons.spa,
+            ),
+            tooltip: 'Switch AI Assistant',
+            onPressed: () => _showAgentSelector(),
+          ),
           IconButton(
             icon: const Icon(Icons.delete_outline),
             tooltip: 'Clear conversation history',
@@ -221,8 +214,8 @@ class _TherapyChatScreenState extends ConsumerState<TherapyChatScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            // Token limit warning
-            if (_isLimitExceeded)
+            // Backend limitations warning
+            if (!canMakeRequest && limitations?.limitMessage != null)
               Container(
                 padding: const EdgeInsets.all(8.0),
                 color: Theme.of(context).colorScheme.errorContainer,
@@ -235,7 +228,7 @@ class _TherapyChatScreenState extends ConsumerState<TherapyChatScreen> {
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        'Daily token limit reached. The limit will reset tomorrow.',
+                        limitations!.limitMessage!,
                         style: TextStyle(
                           color: Theme.of(context).colorScheme.onErrorContainer,
                         ),
@@ -324,11 +317,11 @@ class _TherapyChatScreenState extends ConsumerState<TherapyChatScreen> {
                         constraints: const BoxConstraints(maxHeight: 120),
                         child: TextField(
                           controller: _messageController,
-                          enabled: !_isLimitExceeded && !chatState.isLoading,
+                          enabled: canMakeRequest && !chatState.isLoading,
                           decoration: InputDecoration(
                             hintText:
-                                _isLimitExceeded
-                                    ? 'Daily token limit reached'
+                                !canMakeRequest
+                                    ? 'Usage limit reached'
                                     : 'Type your message...',
                             border: const OutlineInputBorder(),
                             contentPadding: const EdgeInsets.symmetric(
@@ -340,14 +333,14 @@ class _TherapyChatScreenState extends ConsumerState<TherapyChatScreen> {
                           maxLines: null,
                           textCapitalization: TextCapitalization.sentences,
                           onSubmitted:
-                              (_) => _isLimitExceeded ? null : _sendMessage(),
+                              (_) => !canMakeRequest ? null : _sendMessage(),
                         ),
                       ),
                     ),
                     const SizedBox(width: 4),
                     IconButton(
                       onPressed:
-                          (_isLimitExceeded || chatState.isLoading)
+                          (!canMakeRequest || chatState.isLoading)
                               ? null
                               : _sendMessage,
                       icon: const Icon(Icons.send),

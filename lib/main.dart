@@ -1,18 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
-import 'package:dart_openai/dart_openai.dart';
 import 'app/router.dart';
-import 'shared/services/sqlite_helper.dart';
+import 'config/api_config.dart';
 import 'package:logger/logger.dart';
-import 'package:provider/provider.dart' as provider;
-import 'features/calendar/events/calendar_events_provider.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/services.dart';
 import 'shared/services/secure_env_service.dart';
+import 'shared/providers/app_providers.dart';
 
 final logger = Logger();
 
@@ -20,7 +16,7 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   // Initialize critical features in parallel
-  final futures = await Future.wait([
+  await Future.wait([
     SystemChrome.setPreferredOrientations([
       DeviceOrientation.portraitUp,
       DeviceOrientation.portraitDown,
@@ -29,25 +25,9 @@ void main() async {
     dotenv.load(fileName: 'assets/.env'),
   ]);
 
-  final prefs = futures[1] as SharedPreferences;
-  await prefs.setBool('pin_verified', false);
-
   // Initialize secure environment service
   final secureEnv = SecureEnvService();
   await secureEnv.initialize();
-
-  // Initialize OpenAI with encrypted API key
-  final apiKey = await secureEnv.getSecureEnv('OPENAI_API_KEY');
-  if (apiKey != null && apiKey.isNotEmpty) {
-    OpenAI.apiKey = apiKey;
-    OpenAI.showLogs = kDebugMode;
-    OpenAI.requestsTimeOut = const Duration(seconds: 30);
-    logger.i("OpenAI API initialized");
-  } else {
-    const message = "OpenAI API key not found or invalid";
-    logger.e(message);
-    throw StateError(message);
-  }
 
   // Platform-specific optimizations
   if (!kIsWeb && kReleaseMode) {
@@ -65,125 +45,18 @@ void main() async {
     return true;
   };
 
-  // Initialize app and defer non-critical operations
-  runApp(
-    provider.MultiProvider(
-      providers: [
-        provider.ChangeNotifierProvider(
-          create: (_) => CalendarEventsProvider(),
-        ),
-      ],
-      child: const ProviderScope(child: MyApp()),
-    ),
-  );
-
-  // Initialize offline storage in background after app is launched
-  Future.microtask(() => initializeOfflineStorage());
-}
-
-Future<void> initializeOfflineStorage() async {
-  final sqliteHelper = SQLiteHelper();
-  try {
-    await sqliteHelper.database.timeout(const Duration(seconds: 5));
-    logger.i("Offline storage initialized");
-
-    // Only sync if there's network connectivity
-    if (await _checkConnectivity()) {
-      await syncOfflineData(sqliteHelper).timeout(const Duration(seconds: 5));
-    }
-  } catch (e, st) {
-    logger.e("Offline storage init failed ERROR: $e : $st");
-  }
-}
-
-Future<bool> _checkConnectivity() async {
-  try {
-    final result = await http.get(Uri.parse('http://10.0.2.2:8000/health'));
-    return result.statusCode == 200;
-  } catch (e) {
-    return false;
-  }
-}
-
-Future<void> syncOfflineData(SQLiteHelper sqliteHelper) async {
-  // Sync emotional records
-  final unsyncedEmotionalRecords =
-      await sqliteHelper.getUnsyncedEmotionalRecords();
-  for (final record in unsyncedEmotionalRecords) {
-    try {
-      final url = Uri.parse('http://10.0.2.2:8000/emotional_records/');
-      final response = await http.post(
-        url,
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode(record.toMap()),
-      );
-
-      if (response.statusCode == 200) {
-        await sqliteHelper.markEmotionalRecordAsSynced(record.id!);
-        logger.i('Synced emotional record: ${record.description}');
-      }
-    } catch (e) {
-      logger.e('Error syncing emotional record: $e');
-    }
+  // Validate API configuration
+  if (!ApiConfig.validateConfiguration()) {
+    logger.e('Invalid API configuration detected! App may not work correctly.');
   }
 
-  // Sync Breathing Sessions
-  final unsyncedBreathingSessions =
-      await sqliteHelper.getUnsyncedBreathingSessions();
-  for (final session in unsyncedBreathingSessions) {
-    try {
-      final url = Uri.parse('http://10.0.2.2:8000/breathing_sessions/');
-      final response = await http.post(
-        url,
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode(session.toMap()),
-      );
-
-      if (response.statusCode == 200) {
-        await sqliteHelper.markBreathingSessionAsSynced(session.id!);
-        logger.i('Synced breathing session with rating: ${session.rating}');
-      } else {
-        logger.e(
-          'Failed to sync breathing session with rating: ${session.rating}',
-        );
-      }
-    } catch (e) {
-      logger.e('Error syncing breathing session: $e');
-    }
+  // Print configuration for debugging
+  if (ApiConfig.isDevelopment) {
+    ApiConfig.printConfig();
   }
 
-  // Sync Breathing Patterns
-  try {
-    final unsyncedBreathingPatterns =
-        await sqliteHelper.getUnsyncedBreathingPatterns();
-
-    for (final patternMap in unsyncedBreathingPatterns) {
-      try {
-        final url = Uri.parse('http://10.0.2.2:8000/breathing_patterns/');
-        final response = await http.post(
-          url,
-          headers: {'Content-Type': 'application/json'},
-          body: jsonEncode(patternMap),
-        );
-
-        if (response.statusCode == 200 || response.statusCode == 201) {
-          await sqliteHelper.markBreathingPatternAsSynced(
-            patternMap['id'] as int,
-          );
-          logger.i('Synced breathing pattern: ${patternMap['name']}');
-        } else {
-          logger.e(
-            'Failed to sync breathing pattern: ${patternMap['name']} - Status: ${response.statusCode}',
-          );
-        }
-      } catch (e) {
-        logger.e('Error syncing breathing pattern: $e');
-      }
-    }
-  } catch (e) {
-    // This might happen if the breathing_patterns table doesn't exist yet
-    logger.e('Error accessing breathing patterns: $e');
-  }
+  // Initialize app with unified Riverpod state management
+  runApp(const ProviderScope(child: MyApp()));
 }
 
 class MyApp extends ConsumerStatefulWidget {
@@ -198,6 +71,11 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+
+    // Trigger app initialization
+    Future.microtask(() {
+      ref.read(appInitializationProvider);
+    });
   }
 
   @override
@@ -210,14 +88,6 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.paused ||
         state == AppLifecycleState.detached) {
-      // App is being killed or sent to background
-      ref.read(isFirstLaunchProvider.notifier).state = true;
-      SharedPreferences.getInstance().then((prefs) {
-        prefs.setBool('pin_verified', false);
-      });
-    } else if (state == AppLifecycleState.resumed) {
-      // App is being resumed
-      ref.read(isFirstLaunchProvider.notifier).state = true;
       SharedPreferences.getInstance().then((prefs) {
         prefs.setBool('pin_verified', false);
       });
@@ -227,6 +97,7 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) {
     final router = ref.watch(routerProvider);
+    final appInitAsync = ref.watch(appInitializationProvider);
 
     return MaterialApp.router(
       title: 'E-motion AI',
@@ -235,6 +106,72 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
         useMaterial3: true,
       ),
       routerConfig: router,
+      builder: (context, child) {
+        return appInitAsync.when(
+          loading: () => const _AppLoadingScreen(),
+          error: (error, stack) {
+            logger.e('App initialization failed: $error\n$stack');
+            // Still show the app but with limited functionality
+            return child ?? const SizedBox.shrink();
+          },
+          data: (initialized) {
+            if (!initialized) {
+              logger.w(
+                'App initialization incomplete, some features may not work',
+              );
+            }
+            return child ?? const SizedBox.shrink();
+          },
+        );
+      },
+    );
+  }
+}
+
+/// Loading screen shown during app initialization
+class _AppLoadingScreen extends StatelessWidget {
+  const _AppLoadingScreen();
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      home: Scaffold(
+        body: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [Colors.deepPurple.shade100, Colors.deepPurple.shade300],
+            ),
+          ),
+          child: const Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.psychology, size: 64, color: Colors.white),
+                SizedBox(height: 24),
+                Text(
+                  'E-motion AI',
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+                SizedBox(height: 16),
+                CircularProgressIndicator(
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                ),
+                SizedBox(height: 16),
+                Text(
+                  'Initializing offline-first sync...',
+                  style: TextStyle(color: Colors.white70, fontSize: 14),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

@@ -1,8 +1,8 @@
-import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
-import 'package:emotion_ai/shared/models/emotional_record.dart';
-import 'package:emotion_ai/shared/models/breathing_session_data.dart';
-import 'package:emotion_ai/shared/services/sqlite_helper.dart';
+import 'package:emotion_ai/data/models/breathing_session.dart';
+import 'package:emotion_ai/data/models/emotional_record.dart';
+import 'package:emotion_ai/config/api_config.dart';
+import 'package:emotion_ai/utils/data_validator.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:logger/logger.dart';
@@ -18,9 +18,9 @@ Future<Map<DateTime, List<EmotionalRecord>>> _processEmotionalRecordsInIsolate(
   final Map<DateTime, List<EmotionalRecord>> events = {};
   for (var record in records) {
     final normalizedDate = DateTime(
-      record.date.year,
-      record.date.month,
-      record.date.day,
+      record.createdAt.year,
+      record.createdAt.month,
+      record.createdAt.day,
     );
     events[normalizedDate] = events[normalizedDate] ?? [];
     events[normalizedDate]!.add(record);
@@ -34,9 +34,9 @@ _processBreathingSessionsInIsolate(List<BreathingSessionData> sessions) async {
   final Map<DateTime, List<BreathingSessionData>> events = {};
   for (var session in sessions) {
     final normalizedDate = DateTime(
-      session.date.year,
-      session.date.month,
-      session.date.day,
+      session.createdAt.year,
+      session.createdAt.month,
+      session.createdAt.day,
     );
     events[normalizedDate] = events[normalizedDate] ?? [];
     events[normalizedDate]!.add(session);
@@ -44,17 +44,35 @@ _processBreathingSessionsInIsolate(List<BreathingSessionData> sessions) async {
   return events;
 }
 
-// Isolate function for parsing JSON data
+// Isolate function for parsing JSON data with validation
 Future<List<T>> _parseJsonDataInIsolate<T>(Map<String, dynamic> data) async {
   final List<dynamic> jsonData = data['data'];
   final String type = data['type'];
 
-  if (type == 'emotional') {
-    return jsonData.map((item) => EmotionalRecord.fromMap(item)).toList()
-        as List<T>;
-  } else {
-    return jsonData.map((item) => BreathingSessionData.fromMap(item)).toList()
-        as List<T>;
+  try {
+    if (type == 'emotional') {
+      final validatedData = DataValidator.validateApiResponseList(
+        jsonData,
+        'EmotionalRecord',
+      );
+      return validatedData
+              .map((item) => EmotionalRecord.fromJson(item))
+              .toList()
+          as List<T>;
+    } else {
+      final validatedData = DataValidator.validateApiResponseList(
+        jsonData,
+        'BreathingSession',
+      );
+      return validatedData
+              .map((item) => BreathingSessionData.fromJson(item))
+              .toList()
+          as List<T>;
+    }
+  } catch (e) {
+    logger.e('Error parsing $type data: $e');
+    // Return empty list instead of crashing
+    return <T>[];
   }
 }
 
@@ -64,40 +82,79 @@ class CalendarEventsProvider extends ChangeNotifier {
   Map<DateTime, List<BreathingSessionData>> breathingEvents = {};
   String? errorMessage;
 
-  /// Normalizes a DateTime to midnight to ensure consistent date comparison
-  DateTime _normalizeDate(DateTime date) {
-    return DateTime(date.year, date.month, date.day);
-  }
-
-  /// Pass a callback to show a SnackBar if backend is unreachable
-  Future<void> fetchEvents({void Function(String)? onBackendError}) async {
+  /// Fetch events with comprehensive validation and error handling
+  Future<void> fetchEvents() async {
     state = CalendarLoadState.loading;
+    errorMessage = null;
     notifyListeners();
 
-    final sqliteHelper = SQLiteHelper();
-
     try {
-      // Try backend first with timeout
+      logger.i('Fetching calendar events from backend...');
+
       final emotionalResponse = await http
-          .get(Uri.parse('http://10.0.2.2:8000/emotional_records/'))
-          .timeout(const Duration(seconds: 2));
+          .get(Uri.parse(ApiConfig.emotionalRecordsUrl()))
+          .timeout(const Duration(seconds: 5));
       final breathingResponse = await http
-          .get(Uri.parse('http://10.0.2.2:8000/breathing_sessions/'))
-          .timeout(const Duration(seconds: 2));
+          .get(Uri.parse(ApiConfig.breathingSessionsUrl()))
+          .timeout(const Duration(seconds: 5));
+
+      logger.i(
+        'API responses - Emotional: ${emotionalResponse.statusCode}, Breathing: ${breathingResponse.statusCode}',
+      );
 
       if (emotionalResponse.statusCode == 200 &&
           breathingResponse.statusCode == 200) {
-        // Parse JSON data in isolates
+        // Validate response bodies
+        final emotionalBody = emotionalResponse.body;
+        final breathingBody = breathingResponse.body;
+
+        logger.i(
+          'Response bodies - Emotional length: ${emotionalBody.length}, Breathing length: ${breathingBody.length}',
+        );
+
+        if (emotionalBody.isEmpty || breathingBody.isEmpty) {
+          throw Exception('Empty response from backend');
+        }
+
+        dynamic emotionalJson;
+        dynamic breathingJson;
+
+        try {
+          emotionalJson = jsonDecode(emotionalBody);
+          breathingJson = jsonDecode(breathingBody);
+        } catch (e) {
+          throw Exception('Invalid JSON response from backend: $e');
+        }
+
+        // Ensure responses are lists
+        if (emotionalJson is! List) {
+          throw Exception(
+            'Expected list response for emotional records, got: ${emotionalJson.runtimeType}',
+          );
+        }
+        if (breathingJson is! List) {
+          throw Exception(
+            'Expected list response for breathing sessions, got: ${breathingJson.runtimeType}',
+          );
+        }
+
+        logger.i('Parsing emotional records: ${emotionalJson.length} items');
+        logger.i('Parsing breathing sessions: ${breathingJson.length} items');
+
+        // Backend returns array directly, not wrapped in "data" field
         final emotionalData = await compute(
           _parseJsonDataInIsolate<EmotionalRecord>,
-          {'data': jsonDecode(emotionalResponse.body), 'type': 'emotional'},
+          {'data': emotionalJson, 'type': 'emotional'},
         );
         final breathingData = await compute(
           _parseJsonDataInIsolate<BreathingSessionData>,
-          {'data': jsonDecode(breathingResponse.body), 'type': 'breathing'},
+          {'data': breathingJson, 'type': 'breathing'},
         );
 
-        // Process records in isolates
+        logger.i(
+          'Successfully parsed - Emotional: ${emotionalData.length}, Breathing: ${breathingData.length}',
+        );
+
         emotionalEvents = await compute(
           _processEmotionalRecordsInIsolate,
           emotionalData,
@@ -107,41 +164,25 @@ class CalendarEventsProvider extends ChangeNotifier {
           breathingData,
         );
 
+        logger.i('Calendar events processed successfully');
         state = CalendarLoadState.loaded;
         notifyListeners();
-        return;
       } else {
-        throw Exception('Failed to fetch from backend');
+        final error =
+            'Backend error - Emotional: ${emotionalResponse.statusCode}, Breathing: ${breathingResponse.statusCode}';
+        logger.e(error);
+        throw Exception(error);
       }
     } catch (e) {
-      logger.w('Backend connection failed: $e. Loading from local storage.');
+      logger.e('Error fetching calendar events: $e');
+      errorMessage = e.toString();
+      state = CalendarLoadState.error;
 
-      if (onBackendError != null) {
-        onBackendError('No connection with backend. Loading local data.');
-      }
+      // Provide fallback empty data to prevent UI crashes
+      emotionalEvents = {};
+      breathingEvents = {};
 
-      try {
-        final emotionalRecords = await sqliteHelper.getEmotionalRecords();
-        final breathingSessions = await sqliteHelper.getBreathingSessions();
-
-        // Process local data in isolates
-        emotionalEvents = await compute(
-          _processEmotionalRecordsInIsolate,
-          emotionalRecords,
-        );
-        breathingEvents = await compute(
-          _processBreathingSessionsInIsolate,
-          breathingSessions,
-        );
-
-        state = CalendarLoadState.loaded;
-        notifyListeners();
-      } catch (err) {
-        logger.e('Error loading from SQLite: $err');
-        errorMessage = err.toString();
-        state = CalendarLoadState.error;
-        notifyListeners();
-      }
+      notifyListeners();
     }
   }
 }

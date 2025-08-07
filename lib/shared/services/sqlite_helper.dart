@@ -1,12 +1,11 @@
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import 'package:flutter/foundation.dart';
-import '../models/emotional_record.dart';
-import '../models/breathing_session_data.dart';
-import '../models/breathing_pattern.dart';
-import '../models/custom_emotion.dart';
+import '../../data/models/emotional_record.dart';
+import '../../data/models/breathing_session.dart';
+import '../../data/models/breathing_pattern.dart';
+import '../../data/models/custom_emotion.dart';
 import 'package:logger/logger.dart';
-import '../models/daily_token_usage.dart';
 
 final logger = Logger();
 
@@ -306,6 +305,91 @@ class SQLiteHelper {
     );
   }
 
+  /// Mark emotional record as synced (string ID version for sync compatibility)
+  Future<void> markEmotionalRecordSynced(String recordId) async {
+    final db = await database;
+    await db.update(
+      'emotional_records',
+      {'synced': 1, 'last_sync_attempt': DateTime.now().toIso8601String()},
+      where: 'id = ?',
+      whereArgs: [recordId],
+    );
+  }
+
+  /// Update sync attempt for emotional record
+  Future<void> updateSyncAttempt(String recordId, String errorMessage) async {
+    final db = await database;
+    await db.rawUpdate(
+      '''
+      UPDATE emotional_records 
+      SET sync_attempts = sync_attempts + 1,
+          last_sync_attempt = ?
+      WHERE id = ?
+    ''',
+      [DateTime.now().toIso8601String(), recordId],
+    );
+  }
+
+  /// Get sync statistics
+  Future<Map<String, int>> getSyncStats() async {
+    final db = await database;
+    try {
+      final syncedCount =
+          Sqflite.firstIntValue(
+            await db.rawQuery(
+              'SELECT COUNT(*) FROM emotional_records WHERE synced = 1',
+            ),
+          ) ??
+          0;
+
+      final unsyncedCount =
+          Sqflite.firstIntValue(
+            await db.rawQuery(
+              'SELECT COUNT(*) FROM emotional_records WHERE synced = 0',
+            ),
+          ) ??
+          0;
+
+      final failedCount =
+          Sqflite.firstIntValue(
+            await db.rawQuery(
+              'SELECT COUNT(*) FROM emotional_records WHERE sync_attempts > 3',
+            ),
+          ) ??
+          0;
+
+      return {
+        'synced': syncedCount,
+        'unsynced': unsyncedCount,
+        'failed': failedCount,
+        'total': syncedCount + unsyncedCount,
+      };
+    } catch (e) {
+      logger.e('❌ Failed to get sync stats: $e');
+      return {'synced': 0, 'unsynced': 0, 'failed': 0, 'total': 0};
+    }
+  }
+
+  /// Clean up old synced records
+  Future<void> cleanupOldRecords() async {
+    final db = await database;
+    try {
+      await db.rawDelete('''
+        DELETE FROM emotional_records 
+        WHERE synced = 1 
+        AND id NOT IN (
+          SELECT id FROM emotional_records 
+          WHERE synced = 1 
+          ORDER BY date DESC 
+          LIMIT 100
+        )
+      ''');
+      logger.i('🧹 Cleaned up old synced records');
+    } catch (e) {
+      logger.e('❌ Failed to cleanup old records: $e');
+    }
+  }
+
   // BreathingSession CRUD Operations
   Future<void> insertBreathingSession(BreathingSessionData session) async {
     final db = await database;
@@ -417,6 +501,37 @@ class SQLiteHelper {
     );
   }
 
+  // Additional sync-related methods for emotional records
+
+  Future<List<EmotionalRecord>> getAllEmotionalRecords() async {
+    final db = await database;
+    final List<Map<String, dynamic>> maps = await db.query('emotional_records');
+    return compute(_processEmotionalRecordsInIsolate, maps);
+  }
+
+  // Additional sync-related methods for breathing sessions
+  Future<List<BreathingSessionData>> getAllBreathingSessions() async {
+    final db = await database;
+    final List<Map<String, dynamic>> maps = await db.query(
+      'breathing_sessions',
+    );
+    return compute(_processBreathingSessionsInIsolate, maps);
+  }
+
+  // Additional sync-related methods for breathing patterns
+  Future<List<BreathingPattern>> getAllBreathingPatterns() async {
+    final db = await database;
+    try {
+      final List<Map<String, dynamic>> maps = await db.query(
+        'breathing_patterns',
+      );
+      return compute(_processBreathingPatternsInIsolate, maps);
+    } catch (e) {
+      // Table may not exist yet if older version
+      return [];
+    }
+  }
+
   // Custom Emotions CRUD Operations
   Future<int> insertCustomEmotion(CustomEmotion emotion) async {
     final db = await database;
@@ -424,6 +539,12 @@ class SQLiteHelper {
   }
 
   Future<List<CustomEmotion>> getCustomEmotions() async {
+    final db = await database;
+    final List<Map<String, dynamic>> maps = await db.query('custom_emotions');
+    return compute(_processCustomEmotionsInIsolate, maps);
+  }
+
+  Future<List<CustomEmotion>> getAllCustomEmotions() async {
     final db = await database;
     final List<Map<String, dynamic>> maps = await db.query('custom_emotions');
     return compute(_processCustomEmotionsInIsolate, maps);
@@ -444,96 +565,31 @@ class SQLiteHelper {
     return await db.delete('custom_emotions', where: 'id = ?', whereArgs: [id]);
   }
 
-  // Daily token usage methods
-  Future<DailyTokenUsage> getDailyTokenUsage(
-    String userId,
-    DateTime date,
-  ) async {
+  // Sync conflict tracking table creation
+  Future<void> createSyncConflictsTable() async {
     final db = await database;
-    final dateStr = date.toIso8601String().split('T')[0];
 
-    final result = await db.query(
-      'daily_token_usage',
-      where: 'userId = ? AND date = ?',
-      whereArgs: [userId, dateStr],
+    // Check if table exists
+    final tables = await db.rawQuery(
+      "SELECT name FROM sqlite_master WHERE type='table' AND name='sync_conflicts'",
     );
 
-    if (result.isEmpty) {
-      return DailyTokenUsage(
-        userId: userId,
-        date: date,
-        promptTokens: 0,
-        completionTokens: 0,
-        costInCents: 0,
-      );
+    if (tables.isEmpty) {
+      await db.execute('''
+        CREATE TABLE sync_conflicts (
+          id TEXT PRIMARY KEY,
+          item_type TEXT NOT NULL,
+          item_id TEXT NOT NULL,
+          conflict_type TEXT NOT NULL,
+          local_data TEXT NOT NULL,
+          remote_data TEXT NOT NULL,
+          detected_at TEXT NOT NULL,
+          description TEXT NOT NULL,
+          can_auto_resolve INTEGER NOT NULL DEFAULT 0
+        )
+      ''');
+
+      logger.i('Created sync_conflicts table');
     }
-
-    return DailyTokenUsage.fromMap(result.first);
-  }
-
-  Future<void> updateDailyTokenUsage(DailyTokenUsage usage) async {
-    final db = await database;
-    await db.insert(
-      'daily_token_usage',
-      usage.toMap(),
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
-  }
-
-  Future<void> addTokenUsage(
-    String userId,
-    int promptTokens,
-    int completionTokens,
-    double costInCents,
-  ) async {
-    final db = await database;
-    final today = DateTime.now();
-    final dateStr = today.toIso8601String().split('T')[0];
-
-    // Use a transaction to ensure atomicity
-    await db.transaction((txn) async {
-      // Get current usage
-      final result = await txn.query(
-        'daily_token_usage',
-        where: 'userId = ? AND date = ?',
-        whereArgs: [userId, dateStr],
-      );
-
-      if (result.isEmpty) {
-        // Create new record
-        await txn.insert('daily_token_usage', {
-          'userId': userId,
-          'date': dateStr,
-          'promptTokens': promptTokens,
-          'completionTokens': completionTokens,
-          'costInCents': costInCents,
-        });
-      } else {
-        // Update existing record
-        final current = DailyTokenUsage.fromMap(result.first);
-        await txn.update(
-          'daily_token_usage',
-          {
-            'promptTokens': current.promptTokens + promptTokens,
-            'completionTokens': current.completionTokens + completionTokens,
-            'costInCents': current.costInCents + costInCents,
-          },
-          where: 'userId = ? AND date = ?',
-          whereArgs: [userId, dateStr],
-        );
-      }
-    });
-  }
-
-  Future<void> cleanupOldTokenUsage(int daysToKeep) async {
-    final db = await database;
-    final cutoffDate = DateTime.now().subtract(Duration(days: daysToKeep));
-    final cutoffDateStr = cutoffDate.toIso8601String().split('T')[0];
-
-    await db.delete(
-      'daily_token_usage',
-      where: 'date < ?',
-      whereArgs: [cutoffDateStr],
-    );
   }
 }

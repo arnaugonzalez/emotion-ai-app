@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
-import '../../shared/models/user_profile.dart';
-import '../../shared/services/user_profile_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../auth/pin_code_screen.dart';
+import 'package:emotion_ai/features/auth/auth_provider.dart';
+import 'package:emotion_ai/features/auth/pin_code_screen.dart';
+import 'package:emotion_ai/core/theme/app_theme.dart';
 import '../terms/terms_dialog.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
@@ -90,37 +90,29 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   @override
   void initState() {
     super.initState();
-    _loadProfile();
+    _loadPinStatus();
   }
 
-  Future<void> _loadProfile() async {
+  Future<void> _loadPinStatus() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
-      _nameController.text = prefs.getString('user_name') ?? '';
-      _ageController.text = prefs.getString('user_age') ?? '';
-      _selectedGender = prefs.getString('user_gender');
-      _jobController.text = prefs.getString('user_job') ?? '';
-      _countryController.text = prefs.getString('user_country') ?? '';
-      _selectedPersonalityType = prefs.getString('user_personality_type');
-      _selectedRelaxationTime = prefs.getString('user_relaxation_time');
-      _selectedSelfcareFrequency = prefs.getString('user_selfcare_frequency');
-      _hasAcceptedTerms = prefs.getBool('has_accepted_terms') ?? false;
       _hasPinCode = prefs.getString('user_pin_code') != null;
-
-      if (prefs.getStringList('user_relaxation_tools') != null) {
-        _selectedRelaxationTools.clear();
-        _selectedRelaxationTools.addAll(
-          prefs.getStringList('user_relaxation_tools')!,
-        );
-      }
-
-      _hasPreviousMentalHealthAppExperience = prefs.getBool(
-        'user_has_previous_mental_health_app_experience',
-      );
-      _selectedTherapyChatHistoryPreference = prefs.getString(
-        'user_therapy_chat_history_preference',
-      );
     });
+  }
+
+  Future<void> _setupPinCode() async {
+    final result = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const PinCodeScreen(isSettingUp: true),
+      ),
+    );
+
+    if (result == true) {
+      setState(() {
+        _hasPinCode = true;
+      });
+    }
   }
 
   Future<void> _launchPersonalityTestUrl() async {
@@ -162,144 +154,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     );
   }
 
-  Future<void> _setupPinCode() async {
-    final result = await Navigator.push<bool>(
-      context,
-      MaterialPageRoute(
-        builder: (context) => const PinCodeScreen(isSettingUp: true),
-      ),
-    );
-
-    if (result == true) {
-      setState(() {
-        _hasPinCode = true;
-      });
-    }
-  }
-
-  Future<void> _saveProfile() async {
-    if (_formKey.currentState!.validate()) {
-      // Check for terms and conditions first
-      if (!_hasAcceptedTerms) {
-        await _showTermsDialog();
-        // If still not accepted after showing dialog, return
-        if (!_hasAcceptedTerms) {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text(
-                  'Please accept the terms and conditions to continue',
-                ),
-                backgroundColor: Colors.red,
-              ),
-            );
-          }
-          return;
-        }
-      }
-
-      // Check for PIN code
-      if (!_hasPinCode) {
-        await _setupPinCode();
-        // If still not set after showing screen, return
-        if (!_hasPinCode) {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Please set up a PIN code to continue'),
-                backgroundColor: Colors.red,
-              ),
-            );
-          }
-          return;
-        }
-      }
-
-      setState(() {
-        _isLoading = true;
-      });
-
-      try {
-        final age = int.tryParse(_ageController.text);
-
-        final profile = UserProfile(
-          name: _nameController.text,
-          age: age,
-          gender: _selectedGender,
-          job: _jobController.text,
-          country: _countryController.text,
-          personalityType: _selectedPersonalityType,
-          relaxationTime: _selectedRelaxationTime,
-          selfcareFrequency: _selectedSelfcareFrequency,
-          relaxationTools:
-              _selectedRelaxationTools.isEmpty
-                  ? null
-                  : _selectedRelaxationTools,
-          hasPreviousMentalHealthAppExperience:
-              _hasPreviousMentalHealthAppExperience,
-          therapyChatHistoryPreference: _selectedTherapyChatHistoryPreference,
-        );
-
-        await ref.read(userProfileProvider.notifier).updateProfile(profile);
-
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setString('user_name', _nameController.text);
-        await prefs.setString('user_age', age?.toString() ?? '');
-        await prefs.setString('user_gender', _selectedGender ?? '');
-        await prefs.setString('user_job', _jobController.text);
-        await prefs.setString('user_country', _countryController.text);
-        await prefs.setString(
-          'user_personality_type',
-          _selectedPersonalityType ?? '',
-        );
-        await prefs.setString(
-          'user_relaxation_time',
-          _selectedRelaxationTime ?? '',
-        );
-        await prefs.setString(
-          'user_selfcare_frequency',
-          _selectedSelfcareFrequency ?? '',
-        );
-
-        if (_selectedRelaxationTools.isNotEmpty) {
-          await prefs.setStringList(
-            'user_relaxation_tools',
-            _selectedRelaxationTools,
-          );
-        } else {
-          await prefs.remove('user_relaxation_tools');
-        }
-
-        await prefs.setBool(
-          'user_has_previous_mental_health_app_experience',
-          _hasPreviousMentalHealthAppExperience ?? false,
-        );
-        await prefs.setString(
-          'user_therapy_chat_history_preference',
-          _selectedTherapyChatHistoryPreference ?? 'keep',
-        );
-
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Profile saved successfully')),
-          );
-        }
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text('Failed to save profile: $e')));
-        }
-      } finally {
-        if (mounted) {
-          setState(() {
-            _isLoading = false;
-          });
-        }
-      }
-    }
-  }
-
   @override
   void dispose() {
     _nameController.dispose();
@@ -312,357 +166,780 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Profile Settings')),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Form(
-          key: _formKey,
-          child: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Your Profile Information',
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: _nameController,
-                  decoration: const InputDecoration(
-                    labelText: 'Name',
-                    border: OutlineInputBorder(),
+      body: Container(
+        decoration: AppTheme.backgroundDecoration,
+        child: SafeArea(
+          child: Column(
+            children: [
+              // Custom AppBar with gradient
+              Container(
+                padding: EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  gradient: AppTheme.primaryGradient,
+                  borderRadius: BorderRadius.only(
+                    bottomLeft: Radius.circular(24),
+                    bottomRight: Radius.circular(24),
                   ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please enter your name';
-                    }
-                    return null;
-                  },
                 ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: _ageController,
-                  decoration: const InputDecoration(
-                    labelText: 'Age',
-                    border: OutlineInputBorder(),
-                  ),
-                  keyboardType: TextInputType.number,
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please enter your age';
-                    }
-                    if (int.tryParse(value) == null) {
-                      return 'Please enter a valid number';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 16),
-                DropdownButtonFormField<String>(
-                  value: _selectedGender,
-                  decoration: const InputDecoration(
-                    labelText: 'Gender',
-                    border: OutlineInputBorder(),
-                  ),
-                  items:
-                      ['Male', 'Female', 'Non-binary', 'Prefer not to say'].map(
-                        (String gender) {
-                          return DropdownMenuItem<String>(
-                            value: gender,
-                            child: Text(gender),
-                          );
-                        },
-                      ).toList(),
-                  onChanged: (String? newValue) {
-                    setState(() {
-                      _selectedGender = newValue;
-                    });
-                  },
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please select your gender';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: _jobController,
-                  decoration: const InputDecoration(
-                    labelText: 'Occupation',
-                    border: OutlineInputBorder(),
-                  ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please enter your occupation';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: _countryController,
-                  decoration: const InputDecoration(
-                    labelText: 'Country',
-                    border: OutlineInputBorder(),
-                  ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please enter your country';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 24),
-
-                // Additional profile sections
-                const Text(
-                  'Additional Preferences',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 16),
-
-                // Personality Type field with help icon
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
+                child: Row(
                   children: [
+                    IconButton(
+                      icon: Icon(Icons.arrow_back, color: AppTheme.onPrimary),
+                      onPressed: () => Navigator.of(context).pop(),
+                    ),
                     Expanded(
-                      child: DropdownButtonFormField<String>(
-                        value: _selectedPersonalityType,
-                        decoration: const InputDecoration(
-                          labelText: '16 Personality Type',
-                          border: OutlineInputBorder(),
-                          helperText: 'Select your MBTI personality type',
+                      child: Text(
+                        'Profile Settings',
+                        style: Theme.of(
+                          context,
+                        ).textTheme.headlineMedium?.copyWith(
+                          color: AppTheme.onPrimary,
+                          fontWeight: FontWeight.bold,
                         ),
-                        items:
-                            _personalityTypes.map((String type) {
-                              return DropdownMenuItem<String>(
-                                value: type,
-                                child: Text(type),
-                              );
-                            }).toList(),
-                        onChanged: (String? newValue) {
-                          setState(() {
-                            _selectedPersonalityType = newValue;
-                          });
-                        },
+                        textAlign: TextAlign.center,
                       ),
                     ),
-                    IconButton(
-                      icon: const Icon(Icons.help_outline),
-                      tooltip: 'Learn about personality types',
-                      onPressed: () {
-                        showDialog(
-                          context: context,
-                          builder:
-                              (context) => AlertDialog(
-                                title: const Text('16 Personality Types'),
-                                content: Column(
-                                  mainAxisSize: MainAxisSize.min,
+                    SizedBox(width: 48), // Balance the back button
+                  ],
+                ),
+              ),
+
+              // Scrollable content
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Form(
+                    key: _formKey,
+                    child: SingleChildScrollView(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Basic Information Card
+                          Container(
+                            decoration: AppTheme.cardDecoration,
+                            padding: EdgeInsets.all(20),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
                                   children: [
-                                    const Text(
-                                      'The 16 personality types test tells you which celebrities you\'re most like! It\'s a popular psychology framework to understand different personality traits.',
-                                    ),
-                                    const SizedBox(height: 16),
-                                    TextButton.icon(
-                                      icon: const Icon(Icons.open_in_new),
-                                      label: const Text(
-                                        'Take the test here, it\'s free!',
+                                    Container(
+                                      padding: EdgeInsets.all(8),
+                                      decoration: BoxDecoration(
+                                        gradient: AppTheme.accentGradient,
+                                        borderRadius: BorderRadius.circular(12),
                                       ),
-                                      onPressed: _launchPersonalityTestUrl,
+                                      child: Icon(
+                                        Icons.person,
+                                        color: AppTheme.onPrimary,
+                                        size: 24,
+                                      ),
+                                    ),
+                                    SizedBox(width: 12),
+                                    Text(
+                                      'Basic Information',
+                                      style: Theme.of(
+                                        context,
+                                      ).textTheme.headlineMedium?.copyWith(
+                                        color: AppTheme.primaryViolet,
+                                        fontWeight: FontWeight.bold,
+                                      ),
                                     ),
                                   ],
                                 ),
-                                actions: [
-                                  TextButton(
-                                    onPressed:
-                                        () => Navigator.of(context).pop(),
-                                    child: const Text('Close'),
+                                SizedBox(height: 20),
+                                TextFormField(
+                                  controller: _nameController,
+                                  decoration: InputDecoration(
+                                    labelText: 'Name',
+                                    prefixIcon: Icon(Icons.person_outline),
+                                    hintText: 'Enter your full name',
                                   ),
-                                ],
+                                  validator: (value) {
+                                    if (value == null || value.isEmpty) {
+                                      return 'Please enter your name';
+                                    }
+                                    return null;
+                                  },
+                                ),
+                                SizedBox(height: 16),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: TextFormField(
+                                        controller: _ageController,
+                                        decoration: InputDecoration(
+                                          labelText: 'Age',
+                                          prefixIcon: Icon(Icons.cake_outlined),
+                                          hintText: 'Your age',
+                                        ),
+                                        keyboardType: TextInputType.number,
+                                        validator: (value) {
+                                          if (value == null || value.isEmpty) {
+                                            return 'Please enter your age';
+                                          }
+                                          if (int.tryParse(value) == null) {
+                                            return 'Please enter a valid number';
+                                          }
+                                          return null;
+                                        },
+                                      ),
+                                    ),
+                                    SizedBox(width: 16),
+                                    Expanded(
+                                      child: DropdownButtonFormField<String>(
+                                        value: _selectedGender,
+                                        decoration: InputDecoration(
+                                          labelText: 'Gender',
+                                          prefixIcon: Icon(
+                                            Icons.person_pin_outlined,
+                                          ),
+                                        ),
+                                        items:
+                                            [
+                                              'Male',
+                                              'Female',
+                                              'Non-binary',
+                                              'Prefer not to say',
+                                            ].map((String gender) {
+                                              return DropdownMenuItem<String>(
+                                                value: gender,
+                                                child: Text(gender),
+                                              );
+                                            }).toList(),
+                                        onChanged: (String? newValue) {
+                                          setState(() {
+                                            _selectedGender = newValue;
+                                          });
+                                        },
+                                        validator: (value) {
+                                          if (value == null || value.isEmpty) {
+                                            return 'Please select your gender';
+                                          }
+                                          return null;
+                                        },
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                SizedBox(height: 16),
+                                TextFormField(
+                                  controller: _jobController,
+                                  decoration: InputDecoration(
+                                    labelText: 'Occupation',
+                                    prefixIcon: Icon(Icons.work_outline),
+                                    hintText: 'Your job or profession',
+                                  ),
+                                  validator: (value) {
+                                    if (value == null || value.isEmpty) {
+                                      return 'Please enter your occupation';
+                                    }
+                                    return null;
+                                  },
+                                ),
+                                SizedBox(height: 16),
+                                TextFormField(
+                                  controller: _countryController,
+                                  decoration: InputDecoration(
+                                    labelText: 'Country',
+                                    prefixIcon: Icon(
+                                      Icons.location_on_outlined,
+                                    ),
+                                    hintText: 'Where are you located?',
+                                  ),
+                                  validator: (value) {
+                                    if (value == null || value.isEmpty) {
+                                      return 'Please enter your country';
+                                    }
+                                    return null;
+                                  },
+                                ),
+                              ],
+                            ),
+                          ),
+                          SizedBox(height: 24),
+
+                          // Preferences Card
+                          Container(
+                            decoration: AppTheme.cardDecoration,
+                            padding: EdgeInsets.all(20),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Container(
+                                      padding: EdgeInsets.all(8),
+                                      decoration: BoxDecoration(
+                                        gradient: AppTheme.accentGradient,
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      child: Icon(
+                                        Icons.tune,
+                                        color: AppTheme.onPrimary,
+                                        size: 24,
+                                      ),
+                                    ),
+                                    SizedBox(width: 12),
+                                    Text(
+                                      'Wellness Preferences',
+                                      style: Theme.of(
+                                        context,
+                                      ).textTheme.headlineMedium?.copyWith(
+                                        color: AppTheme.primaryViolet,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                SizedBox(height: 20),
+
+                                // Personality Type field with help icon
+                                Row(
+                                  crossAxisAlignment: CrossAxisAlignment.center,
+                                  children: [
+                                    Expanded(
+                                      child: DropdownButtonFormField<String>(
+                                        value: _selectedPersonalityType,
+                                        decoration: InputDecoration(
+                                          labelText: '16 Personality Type',
+                                          prefixIcon: Icon(
+                                            Icons.psychology_outlined,
+                                          ),
+                                          helperText:
+                                              'Select your MBTI personality type',
+                                        ),
+                                        items:
+                                            _personalityTypes.map((
+                                              String type,
+                                            ) {
+                                              return DropdownMenuItem<String>(
+                                                value: type,
+                                                child: Text(type),
+                                              );
+                                            }).toList(),
+                                        onChanged: (String? newValue) {
+                                          setState(() {
+                                            _selectedPersonalityType = newValue;
+                                          });
+                                        },
+                                      ),
+                                    ),
+                                    Container(
+                                      margin: EdgeInsets.only(left: 8),
+                                      decoration: BoxDecoration(
+                                        color: AppTheme.lightViolet,
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: IconButton(
+                                        icon: Icon(
+                                          Icons.help_outline,
+                                          color: AppTheme.primaryViolet,
+                                        ),
+                                        tooltip:
+                                            'Learn about personality types',
+                                        onPressed: () {
+                                          showDialog(
+                                            context: context,
+                                            builder:
+                                                (context) => AlertDialog(
+                                                  title: Text(
+                                                    '16 Personality Types',
+                                                    style: TextStyle(
+                                                      color:
+                                                          AppTheme
+                                                              .primaryViolet,
+                                                    ),
+                                                  ),
+                                                  content: Column(
+                                                    mainAxisSize:
+                                                        MainAxisSize.min,
+                                                    children: [
+                                                      Text(
+                                                        'The 16 personality types test tells you which celebrities you\'re most like! It\'s a popular psychology framework to understand different personality traits.',
+                                                        style:
+                                                            Theme.of(context)
+                                                                .textTheme
+                                                                .bodyMedium,
+                                                      ),
+                                                      SizedBox(height: 16),
+                                                      Container(
+                                                        decoration:
+                                                            AppTheme
+                                                                .primaryGradientDecoration,
+                                                        child: TextButton.icon(
+                                                          icon: Icon(
+                                                            Icons.open_in_new,
+                                                            color:
+                                                                AppTheme
+                                                                    .onPrimary,
+                                                          ),
+                                                          label: Text(
+                                                            'Take the test here, it\'s free!',
+                                                            style: TextStyle(
+                                                              color:
+                                                                  AppTheme
+                                                                      .onPrimary,
+                                                            ),
+                                                          ),
+                                                          onPressed:
+                                                              _launchPersonalityTestUrl,
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                  actions: [
+                                                    TextButton(
+                                                      onPressed:
+                                                          () =>
+                                                              Navigator.of(
+                                                                context,
+                                                              ).pop(),
+                                                      child: Text('Close'),
+                                                    ),
+                                                  ],
+                                                ),
+                                          );
+                                        },
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                SizedBox(height: 16),
+
+                                // Relaxation time preference
+                                DropdownButtonFormField<String>(
+                                  value: _selectedRelaxationTime,
+                                  decoration: InputDecoration(
+                                    labelText:
+                                        'What time of day do you tend to relax?',
+                                    prefixIcon: Icon(Icons.access_time),
+                                  ),
+                                  items:
+                                      _relaxationTimeOptions.map((String time) {
+                                        return DropdownMenuItem<String>(
+                                          value: time,
+                                          child: Text(time),
+                                        );
+                                      }).toList(),
+                                  onChanged: (String? newValue) {
+                                    setState(() {
+                                      _selectedRelaxationTime = newValue;
+                                    });
+                                  },
+                                ),
+                                SizedBox(height: 16),
+
+                                // Self-care frequency
+                                DropdownButtonFormField<String>(
+                                  value: _selectedSelfcareFrequency,
+                                  decoration: InputDecoration(
+                                    labelText:
+                                        'How often do you take time for yourself?',
+                                    prefixIcon: Icon(Icons.self_improvement),
+                                  ),
+                                  items:
+                                      _selfcareFrequencyOptions.map((
+                                        String frequency,
+                                      ) {
+                                        return DropdownMenuItem<String>(
+                                          value: frequency,
+                                          child: Text(frequency),
+                                        );
+                                      }).toList(),
+                                  onChanged: (String? newValue) {
+                                    setState(() {
+                                      _selectedSelfcareFrequency = newValue;
+                                    });
+                                  },
+                                ),
+                                SizedBox(height: 20),
+
+                                // Relaxation tools
+                                Text(
+                                  'What tools help you relax? (Select all that apply)',
+                                  style: Theme.of(
+                                    context,
+                                  ).textTheme.titleMedium?.copyWith(
+                                    color: AppTheme.primaryViolet,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                SizedBox(height: 12),
+                                Wrap(
+                                  spacing: 8,
+                                  runSpacing: 8,
+                                  children:
+                                      _relaxationToolOptions.map((tool) {
+                                        final isSelected =
+                                            _selectedRelaxationTools.contains(
+                                              tool,
+                                            );
+                                        return FilterChip(
+                                          label: Text(
+                                            tool,
+                                            style: TextStyle(
+                                              color:
+                                                  isSelected
+                                                      ? AppTheme.onPrimary
+                                                      : AppTheme.onSurface,
+                                              fontWeight:
+                                                  isSelected
+                                                      ? FontWeight.w600
+                                                      : FontWeight.normal,
+                                            ),
+                                          ),
+                                          selected: isSelected,
+                                          selectedColor: AppTheme.primaryViolet,
+                                          backgroundColor:
+                                              AppTheme.surfaceVariant,
+                                          checkmarkColor: AppTheme.onPrimary,
+                                          onSelected: (selected) {
+                                            setState(() {
+                                              if (selected) {
+                                                _selectedRelaxationTools.add(
+                                                  tool,
+                                                );
+                                              } else {
+                                                _selectedRelaxationTools.remove(
+                                                  tool,
+                                                );
+                                              }
+                                            });
+                                          },
+                                        );
+                                      }).toList(),
+                                ),
+                              ],
+                            ),
+                          ),
+                          SizedBox(height: 24),
+
+                          // Experience and Preferences Card
+                          Container(
+                            decoration: AppTheme.cardDecoration,
+                            padding: EdgeInsets.all(20),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Container(
+                                      padding: EdgeInsets.all(8),
+                                      decoration: BoxDecoration(
+                                        gradient: AppTheme.accentGradient,
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      child: Icon(
+                                        Icons.psychology,
+                                        color: AppTheme.onPrimary,
+                                        size: 24,
+                                      ),
+                                    ),
+                                    SizedBox(width: 12),
+                                    Text(
+                                      'Experience & Preferences',
+                                      style: Theme.of(
+                                        context,
+                                      ).textTheme.headlineMedium?.copyWith(
+                                        color: AppTheme.primaryViolet,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                SizedBox(height: 20),
+
+                                // Previous mental health app experience
+                                Text(
+                                  'Have you ever used a mental health app before?',
+                                  style: Theme.of(
+                                    context,
+                                  ).textTheme.titleMedium?.copyWith(
+                                    color: AppTheme.primaryViolet,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: RadioListTile<bool>(
+                                        title: Text('Yes'),
+                                        value: true,
+                                        groupValue:
+                                            _hasPreviousMentalHealthAppExperience,
+                                        activeColor: AppTheme.primaryViolet,
+                                        onChanged: (value) {
+                                          setState(() {
+                                            _hasPreviousMentalHealthAppExperience =
+                                                value;
+                                          });
+                                        },
+                                      ),
+                                    ),
+                                    Expanded(
+                                      child: RadioListTile<bool>(
+                                        title: Text('No'),
+                                        value: false,
+                                        groupValue:
+                                            _hasPreviousMentalHealthAppExperience,
+                                        activeColor: AppTheme.primaryViolet,
+                                        onChanged: (value) {
+                                          setState(() {
+                                            _hasPreviousMentalHealthAppExperience =
+                                                value;
+                                          });
+                                        },
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                SizedBox(height: 16),
+
+                                // Therapy chat history preference
+                                Text(
+                                  'For AI therapy conversations, what context would you prefer?',
+                                  style: Theme.of(
+                                    context,
+                                  ).textTheme.titleMedium?.copyWith(
+                                    color: AppTheme.primaryViolet,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                Column(
+                                  children:
+                                      _therapyChatHistoryOptions.map((option) {
+                                        return RadioListTile<String>(
+                                          title: Text(option),
+                                          value: option,
+                                          groupValue:
+                                              _selectedTherapyChatHistoryPreference,
+                                          activeColor: AppTheme.primaryViolet,
+                                          onChanged: (value) {
+                                            setState(() {
+                                              _selectedTherapyChatHistoryPreference =
+                                                  value;
+                                            });
+                                          },
+                                        );
+                                      }).toList(),
+                                ),
+                              ],
+                            ),
+                          ),
+                          SizedBox(height: 24),
+
+                          // Security & Terms Card
+                          Container(
+                            decoration: AppTheme.cardDecoration,
+                            padding: EdgeInsets.all(20),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Container(
+                                      padding: EdgeInsets.all(8),
+                                      decoration: BoxDecoration(
+                                        gradient: AppTheme.accentGradient,
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      child: Icon(
+                                        Icons.security,
+                                        color: AppTheme.onPrimary,
+                                        size: 24,
+                                      ),
+                                    ),
+                                    SizedBox(width: 12),
+                                    Text(
+                                      'Security & Terms',
+                                      style: Theme.of(
+                                        context,
+                                      ).textTheme.headlineMedium?.copyWith(
+                                        color: AppTheme.primaryViolet,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                SizedBox(height: 20),
+
+                                ListTile(
+                                  contentPadding: EdgeInsets.zero,
+                                  leading: Icon(
+                                    Icons.description_outlined,
+                                    color: AppTheme.primaryViolet,
+                                  ),
+                                  title: Text(
+                                    'Terms and Conditions',
+                                    style: TextStyle(
+                                      color: AppTheme.onSurface,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  subtitle: Text(
+                                    _hasAcceptedTerms
+                                        ? 'Accepted'
+                                        : 'Please accept the terms and conditions',
+                                    style: TextStyle(
+                                      color:
+                                          _hasAcceptedTerms
+                                              ? AppTheme.primaryViolet
+                                              : AppTheme.primaryRed,
+                                    ),
+                                  ),
+                                  trailing: Icon(
+                                    _hasAcceptedTerms
+                                        ? Icons.check_circle
+                                        : Icons.arrow_forward,
+                                    color:
+                                        _hasAcceptedTerms
+                                            ? AppTheme.primaryViolet
+                                            : AppTheme.onSurfaceVariant,
+                                  ),
+                                  onTap: _showTermsDialog,
+                                ),
+                                Divider(
+                                  color: AppTheme.lightViolet.withOpacity(0.3),
+                                ),
+                                ListTile(
+                                  contentPadding: EdgeInsets.zero,
+                                  leading: Icon(
+                                    Icons.lock_outline,
+                                    color: AppTheme.primaryViolet,
+                                  ),
+                                  title: Text(
+                                    'PIN Code',
+                                    style: TextStyle(
+                                      color: AppTheme.onSurface,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  subtitle: Text(
+                                    _hasPinCode
+                                        ? 'Set up and secured'
+                                        : 'Please set up a PIN code for security',
+                                    style: TextStyle(
+                                      color:
+                                          _hasPinCode
+                                              ? AppTheme.primaryViolet
+                                              : AppTheme.primaryRed,
+                                    ),
+                                  ),
+                                  trailing: Icon(
+                                    _hasPinCode
+                                        ? Icons.check_circle
+                                        : Icons.arrow_forward,
+                                    color:
+                                        _hasPinCode
+                                            ? AppTheme.primaryViolet
+                                            : AppTheme.onSurfaceVariant,
+                                  ),
+                                  onTap: _setupPinCode,
+                                ),
+                              ],
+                            ),
+                          ),
+                          SizedBox(height: 32),
+
+                          // Action Buttons
+                          Column(
+                            children: [
+                              Container(
+                                width: double.infinity,
+                                height: 56,
+                                decoration: AppTheme.primaryGradientDecoration,
+                                child: ElevatedButton(
+                                  onPressed:
+                                      null, // TODO: Implement save functionality
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.transparent,
+                                    shadowColor: Colors.transparent,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                  ),
+                                  child:
+                                      _isLoading
+                                          ? SizedBox(
+                                            height: 24,
+                                            width: 24,
+                                            child: CircularProgressIndicator(
+                                              color: AppTheme.onPrimary,
+                                              strokeWidth: 2,
+                                            ),
+                                          )
+                                          : Row(
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.center,
+                                            children: [
+                                              Icon(
+                                                Icons.save,
+                                                color: AppTheme.onPrimary,
+                                              ),
+                                              SizedBox(width: 8),
+                                              Text(
+                                                'Save Profile',
+                                                style: TextStyle(
+                                                  color: AppTheme.onPrimary,
+                                                  fontSize: 16,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                ),
                               ),
-                        );
-                      },
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-
-                // Relaxation time preference
-                DropdownButtonFormField<String>(
-                  value: _selectedRelaxationTime,
-                  decoration: const InputDecoration(
-                    labelText: 'What time of day do you tend to relax?',
-                    border: OutlineInputBorder(),
-                  ),
-                  items:
-                      _relaxationTimeOptions.map((String time) {
-                        return DropdownMenuItem<String>(
-                          value: time,
-                          child: Text(time),
-                        );
-                      }).toList(),
-                  onChanged: (String? newValue) {
-                    setState(() {
-                      _selectedRelaxationTime = newValue;
-                    });
-                  },
-                ),
-                const SizedBox(height: 16),
-
-                // Self-care frequency
-                DropdownButtonFormField<String>(
-                  value: _selectedSelfcareFrequency,
-                  decoration: const InputDecoration(
-                    labelText: 'How often do you take time for yourself?',
-                    border: OutlineInputBorder(),
-                  ),
-                  items:
-                      _selfcareFrequencyOptions.map((String frequency) {
-                        return DropdownMenuItem<String>(
-                          value: frequency,
-                          child: Text(frequency),
-                        );
-                      }).toList(),
-                  onChanged: (String? newValue) {
-                    setState(() {
-                      _selectedSelfcareFrequency = newValue;
-                    });
-                  },
-                ),
-                const SizedBox(height: 16),
-
-                // Relaxation tools
-                const Text(
-                  'What tools help you relax? (Select all that apply)',
-                  style: TextStyle(fontWeight: FontWeight.w500),
-                ),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children:
-                      _relaxationToolOptions.map((tool) {
-                        final isSelected = _selectedRelaxationTools.contains(
-                          tool,
-                        );
-                        return FilterChip(
-                          label: Text(tool),
-                          selected: isSelected,
-                          onSelected: (selected) {
-                            setState(() {
-                              if (selected) {
-                                _selectedRelaxationTools.add(tool);
-                              } else {
-                                _selectedRelaxationTools.remove(tool);
-                              }
-                            });
-                          },
-                        );
-                      }).toList(),
-                ),
-                const SizedBox(height: 16),
-
-                // Previous mental health app experience
-                const Text(
-                  'Have you ever used a mental health app before?',
-                  style: TextStyle(fontWeight: FontWeight.w500),
-                ),
-                Row(
-                  children: [
-                    Expanded(
-                      child: RadioListTile<bool>(
-                        title: const Text('Yes'),
-                        value: true,
-                        groupValue: _hasPreviousMentalHealthAppExperience,
-                        onChanged: (value) {
-                          setState(() {
-                            _hasPreviousMentalHealthAppExperience = value;
-                          });
-                        },
+                              SizedBox(height: 16),
+                              SizedBox(
+                                width: double.infinity,
+                                height: 56,
+                                child: OutlinedButton(
+                                  onPressed:
+                                      () =>
+                                          ref
+                                              .read(authProvider.notifier)
+                                              .logout(),
+                                  style: OutlinedButton.styleFrom(
+                                    side: BorderSide(
+                                      color: AppTheme.primaryRed,
+                                      width: 2,
+                                    ),
+                                    foregroundColor: AppTheme.primaryRed,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                  ),
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(
+                                        Icons.logout,
+                                        color: AppTheme.primaryRed,
+                                      ),
+                                      SizedBox(width: 8),
+                                      Text(
+                                        'Logout',
+                                        style: TextStyle(
+                                          color: AppTheme.primaryRed,
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          SizedBox(height: 32),
+                        ],
                       ),
                     ),
-                    Expanded(
-                      child: RadioListTile<bool>(
-                        title: const Text('No'),
-                        value: false,
-                        groupValue: _hasPreviousMentalHealthAppExperience,
-                        onChanged: (value) {
-                          setState(() {
-                            _hasPreviousMentalHealthAppExperience = value;
-                          });
-                        },
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-
-                // Therapy chat history preference
-                const Text(
-                  'For AI therapy conversations, what context would you prefer?',
-                  style: TextStyle(fontWeight: FontWeight.w500),
-                ),
-                Column(
-                  children:
-                      _therapyChatHistoryOptions.map((option) {
-                        return RadioListTile<String>(
-                          title: Text(option),
-                          value: option,
-                          groupValue: _selectedTherapyChatHistoryPreference,
-                          onChanged: (value) {
-                            setState(() {
-                              _selectedTherapyChatHistoryPreference = value;
-                            });
-                          },
-                        );
-                      }).toList(),
-                ),
-                const SizedBox(height: 24),
-
-                ListTile(
-                  title: const Text('Terms and Conditions'),
-                  subtitle: Text(
-                    _hasAcceptedTerms
-                        ? 'Accepted'
-                        : 'Please accept the terms and conditions',
-                  ),
-                  trailing: Icon(
-                    _hasAcceptedTerms
-                        ? Icons.check_circle
-                        : Icons.arrow_forward,
-                    color: _hasAcceptedTerms ? Colors.green : null,
-                  ),
-                  onTap: _showTermsDialog,
-                ),
-                const Divider(),
-                ListTile(
-                  title: const Text('PIN Code'),
-                  subtitle: Text(
-                    _hasPinCode ? 'Set' : 'Please set up a PIN code',
-                  ),
-                  trailing: Icon(
-                    _hasPinCode ? Icons.check_circle : Icons.arrow_forward,
-                    color: _hasPinCode ? Colors.green : null,
-                  ),
-                  onTap: _setupPinCode,
-                ),
-                const SizedBox(height: 24),
-
-                SizedBox(
-                  width: double.infinity,
-                  height: 50,
-                  child: ElevatedButton(
-                    onPressed: _isLoading ? null : _saveProfile,
-                    child:
-                        _isLoading
-                            ? const CircularProgressIndicator()
-                            : const Text('Save Profile'),
                   ),
                 ),
-                const SizedBox(height: 40),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),

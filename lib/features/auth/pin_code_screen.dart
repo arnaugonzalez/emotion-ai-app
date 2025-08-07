@@ -1,428 +1,274 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
-import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'package:logger/logger.dart';
-import '../../shared/services/secure_env_service.dart';
 
-final logger = Logger();
-
-class AdminPinConfigError extends Error {
-  final String message;
-  AdminPinConfigError(this.message);
-
-  @override
-  String toString() => 'AdminPinConfigError: $message';
-}
-
-// Isolate function for PIN verification
-Future<bool> _verifyPinInIsolate(Map<String, String> data) async {
-  final enteredPin = data['enteredPin']!;
-  final savedPin = data['savedPin']!;
-  return enteredPin == savedPin;
-}
-
-class PinCodeScreen extends ConsumerStatefulWidget {
+class PinCodeScreen extends StatefulWidget {
   final bool isSettingUp;
-
   const PinCodeScreen({super.key, this.isSettingUp = false});
 
   @override
-  ConsumerState<PinCodeScreen> createState() => _PinCodeScreenState();
+  State<PinCodeScreen> createState() => _PinCodeScreenState();
 }
 
-class _PinCodeScreenState extends ConsumerState<PinCodeScreen> {
-  static const String _pinKey = 'user_pin_code';
-  String? _adminCode;
-  static const int _maxLength = 12;
-
-  String _enteredPin = '';
-  bool _obscurePin = true;
-  Timer? _obscureTimer;
-  SharedPreferences? _prefs;
-  bool _isProcessing = false;
-  final SecureEnvService _secureEnv = SecureEnvService();
+class _PinCodeScreenState extends State<PinCodeScreen> {
+  String _pin = '';
+  String? _storedPin;
+  String? _confirmPin;
+  bool _isConfirming = false;
+  static const String adminPin = '981563119939'; // Admin PIN
+  static const int maxPinLength = 12; // Support up to 12 digits
 
   @override
   void initState() {
     super.initState();
-    _initializeScreen();
+    _loadPin();
   }
 
-  Future<void> _initializeScreen() async {
-    try {
-      _adminCode = await _secureEnv.getSecureEnv('ADMIN_PIN');
-      if (_adminCode == null) {
-        const message = 'Admin PIN not properly configured';
-        logger.e(message);
-        _showFatalError(message);
-        throw StateError(message);
-      }
-      await _initPrefs();
-    } catch (e) {
-      logger.e('Error initializing PIN screen: $e');
-      if (mounted) {
-        _showFatalError('Failed to initialize security settings');
-      }
-    }
-  }
-
-  void _showFatalError(String message) {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Security Error'),
-          content: SingleChildScrollView(
-            child: ListBody(
-              children: [
-                const Text(
-                  'A critical security configuration error has occurred:',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 16),
-                Text(message),
-                const SizedBox(height: 16),
-                const Text(
-                  'The application cannot continue. Please contact support.',
-                  style: TextStyle(fontStyle: FontStyle.italic),
-                ),
-              ],
-            ),
-          ),
-          actions: <Widget>[
-            TextButton(
-              child: const Text('Exit App'),
-              onPressed: () => SystemNavigator.pop(),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  Future<void> _initPrefs() async {
-    _prefs = await SharedPreferences.getInstance();
-  }
-
-  @override
-  void dispose() {
-    _obscureTimer?.cancel();
-    super.dispose();
-  }
-
-  void _onKeyPress(String value) {
-    if (_enteredPin.length < _maxLength && !_isProcessing) {
-      setState(() {
-        _enteredPin += value;
-        _obscurePin = false;
-      });
-
-      // Start timer to obscure the last digit
-      _obscureTimer?.cancel();
-      _obscureTimer = Timer(const Duration(milliseconds: 500), () {
-        if (mounted) {
-          setState(() {
-            _obscurePin = true;
-          });
-        }
-      });
-    }
-  }
-
-  void _onBackspace() {
-    if (_enteredPin.isNotEmpty && !_isProcessing) {
-      setState(() {
-        _enteredPin = _enteredPin.substring(0, _enteredPin.length - 1);
-      });
-    }
-  }
-
-  Future<void> _onSubmit() async {
-    if (_isProcessing) return;
-
+  Future<void> _loadPin() async {
+    final prefs = await SharedPreferences.getInstance();
     setState(() {
-      _isProcessing = true;
+      _storedPin = prefs.getString('user_pin_code');
     });
+  }
 
-    try {
-      _prefs ??= await SharedPreferences.getInstance();
+  void _onKeyPressed(String value) {
+    if (_pin.length < maxPinLength) {
+      setState(() {
+        _pin += value;
+      });
+    }
+  }
 
-      if (widget.isSettingUp) {
-        // Save the PIN
-        await _prefs!.setString(_pinKey, _enteredPin);
-        if (!mounted) return;
+  void _onDelete() {
+    if (_pin.isNotEmpty) {
+      setState(() {
+        _pin = _pin.substring(0, _pin.length - 1);
+      });
+    }
+  }
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('PIN code set successfully')),
-        );
-        context.go('/');
-      } else {
-        // Verify the PIN
-        final savedPin = _prefs!.getString(_pinKey);
+  void _onClear() {
+    setState(() {
+      _pin = '';
+    });
+  }
 
-        if (_enteredPin == _adminCode) {
-          // Admin code entered - run in isolate
-          await compute<Map<String, String>, bool>(_verifyPinInIsolate, {
-            'enteredPin': _enteredPin,
-            'savedPin': _adminCode!,
-          });
-
-          await _prefs!.setBool('unlimited_tokens', true);
-          await _prefs!.setBool('pin_verified', true);
+  Future<void> _submit() async {
+    if (widget.isSettingUp) {
+      if (!_isConfirming) {
+        // Minimum 4 digits for custom PIN
+        if (_pin.length < 4) {
           if (!mounted) return;
-
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Admin code activated: Unlimited usage'),
-            ),
+            const SnackBar(content: Text('PIN must be at least 4 digits')),
           );
-          context.go('/');
-        } else if (savedPin != null) {
-          // Regular user PIN - verify in isolate
-          final isValid = await compute<Map<String, String>, bool>(
-            _verifyPinInIsolate,
-            {'enteredPin': _enteredPin, 'savedPin': savedPin},
-          );
-
-          if (isValid) {
-            await _prefs!.setBool('pin_verified', true);
-            if (!mounted) return;
-
-            final userName = _prefs!.getString('user_name') ?? 'User';
-            ScaffoldMessenger.of(
-              context,
-            ).showSnackBar(SnackBar(content: Text('Welcome back, $userName')));
-            context.go('/');
-          } else {
-            _handleInvalidPin();
-          }
+          return;
+        }
+        setState(() {
+          _confirmPin = _pin;
+          _pin = '';
+          _isConfirming = true;
+        });
+      } else {
+        if (_pin == _confirmPin) {
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setString('user_pin_code', _pin);
+          await prefs.setBool('pin_verified', true);
+          if (!mounted) return;
+          context.pop(true);
         } else {
-          _handleInvalidPin();
+          if (!mounted) return;
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('PINs do not match')));
+          setState(() {
+            _pin = '';
+            _confirmPin = null;
+            _isConfirming = false;
+          });
         }
       }
-    } finally {
-      if (mounted) {
+    } else {
+      // Check admin PIN, user PIN, or default PIN
+      final isAdminPin = _pin == adminPin;
+      final isUserPin = _pin == _storedPin;
+      final isDefaultPin =
+          (_storedPin == null && _pin == '1111'); // Default PIN for development
+
+      if (isAdminPin || isUserPin || isDefaultPin) {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setBool('pin_verified', true);
+
+        // Store admin access flag for special privileges
+        if (isAdminPin) {
+          await prefs.setBool('admin_access', true);
+        } else {
+          await prefs.setBool('admin_access', false);
+        }
+
+        if (!mounted) return;
+        context.go('/');
+
+        // Show admin access notification
+        if (isAdminPin) {
+          Future.delayed(const Duration(milliseconds: 500), () {
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('🔐 Admin access granted'),
+                  backgroundColor: Colors.green,
+                  duration: Duration(seconds: 2),
+                ),
+              );
+            }
+          });
+        }
+      } else {
+        if (!mounted) return;
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Incorrect PIN')));
         setState(() {
-          _isProcessing = false;
+          _pin = '';
         });
       }
     }
   }
 
-  void _handleInvalidPin() {
-    setState(() {
-      _enteredPin = '';
-      _isProcessing = false;
-    });
-
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Invalid PIN code'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    }
-  }
-
-  Widget _buildKeypadButton(String value) {
-    // Calculate button size based on screen width
-    final screenWidth = MediaQuery.of(context).size.width;
-    final buttonSize =
-        (screenWidth - 32 - 24) /
-        3; // (screen width - padding - gaps) / 3 buttons
-
-    return SizedBox(
-      width: buttonSize,
-      height: buttonSize,
-      child: Padding(
-        padding: const EdgeInsets.all(4.0),
-        child: ElevatedButton(
-          onPressed: () => _onKeyPress(value),
-          style: ElevatedButton.styleFrom(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
-            padding: EdgeInsets.zero,
-          ),
-          child: Text(
-            value,
-            style: TextStyle(
-              fontSize: buttonSize * 0.3, // Responsive font size
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildActionButton({
-    required VoidCallback? onPressed,
-    required Icon icon,
-    Color? color,
-  }) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final buttonSize = (screenWidth - 32 - 24) / 3;
-
-    return SizedBox(
-      width: buttonSize,
-      height: buttonSize,
-      child: Padding(
-        padding: const EdgeInsets.all(4.0),
-        child: IconButton(
-          onPressed: onPressed,
-          icon: icon,
-          iconSize: buttonSize * 0.3,
-          color: color,
-          style: IconButton.styleFrom(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-              side: BorderSide(color: Theme.of(context).dividerColor),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
-    final screenHeight = MediaQuery.of(context).size.height;
-    final bottomPadding = MediaQuery.of(context).padding.bottom;
-    final topPadding = MediaQuery.of(context).padding.top;
-    final availableHeight =
-        screenHeight -
-        AppBar().preferredSize.height -
-        topPadding -
-        bottomPadding;
-
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.isSettingUp ? 'Set PIN Code' : 'Enter PIN Code'),
-      ),
-      body: SafeArea(
-        child: Column(
-          children: [
-            SizedBox(
-              height:
-                  availableHeight *
-                  0.2, // 20% of available height for top content
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    widget.isSettingUp
-                        ? 'Create a PIN code (up to 12 digits)'
-                        : 'Enter your PIN code',
-                    style: Theme.of(context).textTheme.titleLarge,
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 16),
-                  SizedBox(
-                    height: 48,
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        for (int i = 0; i < _maxLength; i++)
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 4),
-                            child: Container(
-                              width: 12,
-                              decoration: BoxDecoration(
-                                border: Border(
-                                  bottom: BorderSide(
-                                    color:
-                                        i < _enteredPin.length
-                                            ? Theme.of(context).primaryColor
-                                            : Colors.grey,
-                                    width: 2,
-                                  ),
-                                ),
-                              ),
-                              child:
-                                  i == _enteredPin.length - 1 &&
-                                          !_obscurePin &&
-                                          _enteredPin.isNotEmpty
-                                      ? Text(
-                                        _enteredPin[i],
-                                        style: const TextStyle(fontSize: 24),
-                                        textAlign: TextAlign.center,
-                                      )
-                                      : i < _enteredPin.length
-                                      ? const Text(
-                                        '•',
-                                        style: TextStyle(fontSize: 24),
-                                        textAlign: TextAlign.center,
-                                      )
-                                      : null,
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const Spacer(),
-            Padding(
-              padding: EdgeInsets.fromLTRB(16, 0, 16, 16 + bottomPadding),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      _buildKeypadButton('1'),
-                      _buildKeypadButton('2'),
-                      _buildKeypadButton('3'),
-                    ],
-                  ),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      _buildKeypadButton('4'),
-                      _buildKeypadButton('5'),
-                      _buildKeypadButton('6'),
-                    ],
-                  ),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      _buildKeypadButton('7'),
-                      _buildKeypadButton('8'),
-                      _buildKeypadButton('9'),
-                    ],
-                  ),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      _buildActionButton(
-                        onPressed: _onBackspace,
-                        icon: const Icon(Icons.backspace),
-                      ),
-                      _buildKeypadButton('0'),
-                      _buildActionButton(
-                        onPressed: _enteredPin.isNotEmpty ? _onSubmit : null,
-                        icon: const Icon(Icons.check_circle),
-                        color:
-                            _enteredPin.isNotEmpty
-                                ? Theme.of(context).primaryColor
-                                : Colors.deepPurple,
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ],
+        title: Text(
+          widget.isSettingUp
+              ? (_isConfirming ? 'Confirm PIN' : 'Set PIN (4-12 digits)')
+              : 'Enter PIN',
         ),
+      ),
+      body: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          // PIN Display
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+            margin: const EdgeInsets.symmetric(horizontal: 20),
+            decoration: BoxDecoration(
+              border: Border.all(color: Colors.grey),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              _pin.isEmpty ? 'Enter PIN...' : '*' * _pin.length,
+              style: const TextStyle(fontSize: 24, letterSpacing: 2),
+              textAlign: TextAlign.center,
+            ),
+          ),
+
+          const SizedBox(height: 20),
+
+          // PIN Length indicator
+          Text(
+            '${_pin.length} / $maxPinLength digits',
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+
+          const SizedBox(height: 30),
+
+          // Number pad
+          Expanded(
+            child: GridView.builder(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 3,
+                childAspectRatio: 1.2,
+                crossAxisSpacing: 10,
+                mainAxisSpacing: 10,
+              ),
+              itemCount: 12,
+              itemBuilder: (context, index) {
+                if (index == 9) {
+                  // Clear button
+                  return ElevatedButton(
+                    onPressed: _pin.isNotEmpty ? _onClear : null,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red.shade100,
+                      foregroundColor: Colors.red.shade700,
+                    ),
+                    child: const Text('Clear', style: TextStyle(fontSize: 16)),
+                  );
+                }
+                if (index == 10) {
+                  // 0 button
+                  return ElevatedButton(
+                    onPressed:
+                        _pin.length < maxPinLength
+                            ? () => _onKeyPressed('0')
+                            : null,
+                    child: const Text('0', style: TextStyle(fontSize: 24)),
+                  );
+                }
+                if (index == 11) {
+                  // Backspace button
+                  return ElevatedButton(
+                    onPressed: _pin.isNotEmpty ? _onDelete : null,
+                    child: const Icon(Icons.backspace, size: 24),
+                  );
+                }
+                // Number buttons 1-9
+                return ElevatedButton(
+                  onPressed:
+                      _pin.length < maxPinLength
+                          ? () => _onKeyPressed('${index + 1}')
+                          : null,
+                  child: Text(
+                    '${index + 1}',
+                    style: const TextStyle(fontSize: 24),
+                  ),
+                );
+              },
+            ),
+          ),
+
+          const SizedBox(height: 20),
+
+          // Submit button
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 40),
+            child: SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: _pin.length >= 4 ? _submit : null,
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.all(16),
+                  backgroundColor: Theme.of(context).primaryColor,
+                  foregroundColor: Colors.white,
+                ),
+                child: Text(
+                  widget.isSettingUp
+                      ? (_isConfirming ? 'Confirm PIN' : 'Set PIN')
+                      : 'Submit PIN',
+                  style: const TextStyle(fontSize: 18),
+                ),
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 20),
+
+          // Hint text
+          if (!widget.isSettingUp)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 40),
+              child: Text(
+                'Tip: Use 1111 for quick access or contact admin for the 12-digit admin PIN',
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(color: Colors.grey[600]),
+                textAlign: TextAlign.center,
+              ),
+            ),
+
+          const SizedBox(height: 20),
+        ],
       ),
     );
   }

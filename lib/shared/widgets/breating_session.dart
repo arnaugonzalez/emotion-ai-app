@@ -3,8 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:emotion_ai/shared/widgets/rating_modal.dart';
 import 'dart:async';
-import '../../shared/models/breathing_pattern.dart';
-import '../../shared/notifiers/breathing_session_notifier.dart';
+import 'package:emotion_ai/data/models/breathing_pattern.dart';
+import 'package:emotion_ai/features/auth/auth_provider.dart';
 
 class BreathingSessionScreen extends ConsumerStatefulWidget {
   final BreathingPattern pattern;
@@ -109,24 +109,14 @@ class _BreathingSessionScreenState extends ConsumerState<BreathingSessionScreen>
         return RatingModal(
           pattern: widget.pattern,
           onSave: (session) async {
-            try {
-              await ref
-                  .read(breathingSessionProvider.notifier)
-                  .saveSession(session);
-              if (!context.mounted) return;
+            final apiService = ref.read(apiServiceProvider);
+            await apiService.createBreathingSession(session);
+            if (context.mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(content: Text('Session saved successfully')),
               );
-            } catch (e) {
-              if (!context.mounted) return;
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Failed to save session: $e')),
-              );
-            } finally {
-              if (context.mounted) {
-                context.pop(); // Close the modal
-                context.pop(); // Return to breathing menu
-              }
+              context.pop();
+              context.pop();
             }
           },
           onCancel: () {

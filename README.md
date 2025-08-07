@@ -33,10 +33,35 @@ Download the latest APK from the [Releases](../../releases) page.
    ADMIN_PIN=your_secure_pin_here
    ```
 
-3. **Run the App**
+3. **Backend Setup** (if using API backend)
    ```bash
-   flutter run
+   # Start the backend API
+   cd ../emotionai-api
+   docker-compose up -d
    ```
+
+4. **Network Configuration** (for physical device testing)
+   ```bash
+   # Quick setup - auto-detect IP
+   scripts/setup_ip.bat
+   
+   # Or manually run with your IP
+   flutter run --dart-define=DOCKER_HOST=192.168.2.53
+   ```
+
+5. **Run the App**
+   ```bash
+   # Default (automatic device detection)
+   flutter run
+   
+   # Physical device with specific IP
+   scripts/run_physical.bat
+   
+   # Android emulator
+   scripts/run_emulator.bat
+   ```
+
+📖 **For detailed network setup:** See [NETWORK_SETUP.md](NETWORK_SETUP.md)
 
 ## 🔒 Security Notes
 

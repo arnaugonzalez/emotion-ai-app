@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
-import '../../shared/models/custom_emotion.dart';
+import 'package:emotion_ai/data/models/custom_emotion.dart';
+import '../../utils/color_utils.dart';
 
 class CustomEmotionDialog extends StatefulWidget {
   final CustomEmotion? initialEmotion;
@@ -21,7 +22,7 @@ class _CustomEmotionDialogState extends State<CustomEmotionDialog> {
     super.initState();
     if (widget.initialEmotion != null) {
       _nameController.text = widget.initialEmotion!.name;
-      _selectedColor = widget.initialEmotion!.color;
+      _selectedColor = Color(widget.initialEmotion!.color);
     }
   }
 
@@ -105,7 +106,10 @@ class _CustomEmotionDialogState extends State<CustomEmotionDialog> {
               final emotion = CustomEmotion(
                 id: widget.initialEmotion?.id,
                 name: _nameController.text,
-                color: _selectedColor,
+                color:
+                    _selectedColor
+                        .toDatabaseColor(), // Convert to int32-safe value
+                createdAt: DateTime.now(),
               );
               Navigator.of(context).pop(emotion);
             }

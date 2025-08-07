@@ -1,24 +1,38 @@
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'dart:math';
-import '../../shared/models/emotional_record.dart';
-import '../../shared/models/custom_emotion.dart';
-import '../../shared/services/sqlite_helper.dart';
+import 'package:emotion_ai/data/models/custom_emotion.dart';
+import 'package:emotion_ai/data/models/emotional_record.dart';
+import 'package:emotion_ai/features/auth/auth_provider.dart';
 import '../../features/custom_emotion/custom_emotion_dialog.dart';
 import 'package:logger/logger.dart';
 
 final logger = Logger();
 
-class ColorWheelScreen extends StatefulWidget {
+class StandardEmotion {
+  final String name;
+  final Color color;
+  StandardEmotion(this.name, this.color);
+}
+
+final standardEmotions = [
+  StandardEmotion('Happy', Colors.yellow),
+  StandardEmotion('Excited', Colors.orange),
+  StandardEmotion('Tender', Colors.pink),
+  StandardEmotion('Scared', Colors.purple),
+  StandardEmotion('Angry', Colors.red),
+  StandardEmotion('Sad', Colors.blue),
+  StandardEmotion('Anxious', Colors.teal),
+];
+
+class ColorWheelScreen extends ConsumerStatefulWidget {
   const ColorWheelScreen({super.key});
 
   @override
-  State<ColorWheelScreen> createState() => _ColorWheelScreenState();
+  ConsumerState<ColorWheelScreen> createState() => _ColorWheelScreenState();
 }
 
-class _ColorWheelScreenState extends State<ColorWheelScreen> {
-  final List<Emotion> emotions = Emotion.values;
+class _ColorWheelScreenState extends ConsumerState<ColorWheelScreen> {
   final List<CustomEmotion> customEmotions = [];
   final List<CustomEmotion> shuffledCustomEmotions = [];
   final Random _random = Random();
@@ -28,28 +42,22 @@ class _ColorWheelScreenState extends State<ColorWheelScreen> {
   @override
   void initState() {
     super.initState();
-    selectedEmotion = Emotion.happy; // Default selection
+    selectedEmotion = standardEmotions.first; // Default selection
     _loadCustomEmotions();
   }
 
   Future<void> _loadCustomEmotions() async {
-    try {
-      final sqliteHelper = SQLiteHelper();
-      final emotions = await sqliteHelper.getCustomEmotions();
+    final apiService = ref.read(apiServiceProvider);
+    final emotions = await apiService.getCustomEmotions();
+    final shuffled = List<CustomEmotion>.from(emotions);
+    _shuffleList(shuffled);
 
-      // Create and shuffle a copy of the emotions list
-      final shuffled = List<CustomEmotion>.from(emotions);
-      _shuffleList(shuffled);
-
-      setState(() {
-        customEmotions.clear();
-        customEmotions.addAll(emotions);
-        shuffledCustomEmotions.clear();
-        shuffledCustomEmotions.addAll(shuffled);
-      });
-    } catch (e) {
-      logger.e('Failed to load custom emotions: $e');
-    }
+    setState(() {
+      customEmotions.clear();
+      customEmotions.addAll(emotions);
+      shuffledCustomEmotions.clear();
+      shuffledCustomEmotions.addAll(shuffled);
+    });
   }
 
   Future<void> _addCustomEmotion() async {
@@ -59,8 +67,8 @@ class _ColorWheelScreenState extends State<ColorWheelScreen> {
     );
 
     if (result != null) {
-      final sqliteHelper = SQLiteHelper();
-      await sqliteHelper.insertCustomEmotion(result);
+      final apiService = ref.read(apiServiceProvider);
+      await apiService.createCustomEmotion(result);
       await _loadCustomEmotions();
       setState(() {
         isCustomEmotion = true;
@@ -80,31 +88,8 @@ class _ColorWheelScreenState extends State<ColorWheelScreen> {
   }
 
   Future<void> saveEmotionalRecord(EmotionalRecord record) async {
-    final url = Uri.parse('http://10.0.2.2:8000/emotional_records/');
-    try {
-      final response = await http
-          .post(
-            url,
-            headers: {'Content-Type': 'application/json'},
-            body: jsonEncode(record.toMap()),
-          )
-          .timeout(const Duration(seconds: 5));
-
-      if (response.statusCode != 200 && response.statusCode != 201) {
-        throw Exception('Failed to save to backend: ${response.statusCode}');
-      }
-      logger.i('Emotional record saved to backend successfully');
-    } catch (e) {
-      logger.w('Failed to save to backend, falling back to local storage: $e');
-      try {
-        final sqliteHelper = SQLiteHelper();
-        await sqliteHelper.insertEmotionalRecord(record);
-        logger.i('Emotional record saved locally successfully');
-      } catch (e) {
-        logger.e('Failed to save emotional record locally: $e');
-        rethrow;
-      }
-    }
+    final apiService = ref.read(apiServiceProvider);
+    await apiService.createEmotionalRecord(record);
   }
 
   @override
@@ -139,7 +124,7 @@ class _ColorWheelScreenState extends State<ColorWheelScreen> {
                         if (selected) {
                           setState(() {
                             isCustomEmotion = false;
-                            selectedEmotion = Emotion.happy;
+                            selectedEmotion = standardEmotions.first;
                           });
                         }
                       },
@@ -184,7 +169,7 @@ class _ColorWheelScreenState extends State<ColorWheelScreen> {
                     runSpacing: 16,
                     alignment: WrapAlignment.center,
                     children:
-                        emotions.map((emotion) {
+                        standardEmotions.map((emotion) {
                           final isSelected = selectedEmotion == emotion;
                           return ChoiceChip(
                             label: Text(
@@ -196,7 +181,9 @@ class _ColorWheelScreenState extends State<ColorWheelScreen> {
                             ),
                             selected: isSelected,
                             selectedColor: emotion.color,
-                            backgroundColor: emotion.color.withOpacity(0.8),
+                            backgroundColor: emotion.color.withValues(
+                              alpha: 0.8,
+                            ),
                             onSelected: (_) {
                               setState(() {
                                 selectedEmotion = emotion;
@@ -238,8 +225,10 @@ class _ColorWheelScreenState extends State<ColorWheelScreen> {
                                   overflow: TextOverflow.visible,
                                 ),
                                 selected: isSelected,
-                                selectedColor: emotion.color,
-                                backgroundColor: emotion.color.withOpacity(0.8),
+                                selectedColor: Color(emotion.color),
+                                backgroundColor: Color(
+                                  emotion.color,
+                                ).withValues(alpha: 0.8),
                                 onSelected: (_) {
                                   setState(() {
                                     selectedEmotion = emotion;
@@ -264,14 +253,14 @@ class _ColorWheelScreenState extends State<ColorWheelScreen> {
                               final customEmotion =
                                   selectedEmotion as CustomEmotion;
                               final record = EmotionalRecord(
-                                date: now,
                                 source: 'color_wheel',
                                 description:
                                     'Selected custom emotion: ${customEmotion.name}',
-                                emotion:
-                                    Emotion.happy, // Default for compatibility
+                                emotion: customEmotion.name,
+                                color: customEmotion.color,
                                 customEmotionName: customEmotion.name,
-                                customEmotionColor: customEmotion.color.value,
+                                customEmotionColor: customEmotion.color,
+                                createdAt: now,
                               );
 
                               try {
@@ -294,13 +283,15 @@ class _ColorWheelScreenState extends State<ColorWheelScreen> {
                               }
                             } else {
                               // For standard emotions
-                              final stdEmotion = selectedEmotion as Emotion;
+                              final stdEmotion =
+                                  selectedEmotion as StandardEmotion;
                               final record = EmotionalRecord(
-                                date: now,
                                 source: 'color_wheel',
                                 description:
                                     'Selected directly from the color wheel',
-                                emotion: stdEmotion,
+                                emotion: stdEmotion.name,
+                                color: stdEmotion.color.toARGB32(),
+                                createdAt: now,
                               );
 
                               try {
@@ -353,7 +344,7 @@ class _ColorWheelScreenState extends State<ColorWheelScreen> {
                         shuffledCustomEmotions.map((e) {
                           return ActionChip(
                             avatar: CircleAvatar(
-                              backgroundColor: e.color,
+                              backgroundColor: Color(e.color),
                               radius: 12,
                             ),
                             label: Text(e.name, overflow: TextOverflow.visible),

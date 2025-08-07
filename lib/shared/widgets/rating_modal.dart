@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import '../../shared/models/breathing_pattern.dart';
-import '../../shared/models/breathing_session_data.dart';
+import 'package:emotion_ai/data/models/breathing_pattern.dart';
+import 'package:emotion_ai/data/models/breathing_session.dart';
 
 class RatingModal extends StatefulWidget {
   final BreathingPattern pattern;
@@ -68,10 +68,10 @@ class _RatingModalState extends State<RatingModal> {
         ElevatedButton(
           onPressed: () {
             final session = BreathingSessionData(
-              date: DateTime.now(),
-              pattern: widget.pattern,
-              rating: _rating,
+              pattern: widget.pattern.name,
+              rating: _rating.toDouble(),
               comment: _commentController.text.trim(),
+              createdAt: DateTime.now(),
             );
             widget.onSave(session);
           },

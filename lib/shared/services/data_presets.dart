@@ -1,5 +1,6 @@
-import '../models/emotional_record.dart';
-import '../models/breathing_session_data.dart';
+import 'package:flutter/material.dart';
+import 'package:emotion_ai/data/models/emotional_record.dart';
+import 'package:emotion_ai/data/models/breathing_session.dart';
 import '../services/sqlite_helper.dart';
 import 'package:logger/logger.dart';
 
@@ -19,250 +20,277 @@ class DataPresetService {
     // Today's records
     records.add(
       EmotionalRecord(
-        date: now,
         source: "Testing",
         description: "Feeling energized about the app progress",
-        emotion: Emotion.excited,
+        emotion: "excited",
+        color: Colors.yellow.toARGB32(),
+        createdAt: now,
       ),
     );
 
     records.add(
       EmotionalRecord(
-        date: now.subtract(const Duration(hours: 6)),
         source: "Testing",
         description: "Morning meditation brought peace",
-        emotion: Emotion.tender,
+        emotion: "tender",
+        color: Colors.pink.toARGB32(),
+        createdAt: now.subtract(const Duration(hours: 6)),
       ),
     );
 
     // Yesterday's records
     records.add(
       EmotionalRecord(
-        date: now.subtract(const Duration(days: 1)),
         source: "Testing",
         description: "Relaxed evening with friends",
-        emotion: Emotion.happy,
+        emotion: "happy",
+        color: Colors.green.toARGB32(),
+        createdAt: now.subtract(const Duration(days: 1)),
       ),
     );
 
     records.add(
       EmotionalRecord(
-        date: now.subtract(const Duration(days: 1, hours: 8)),
         source: "Testing",
         description: "Upset about work deadline being moved up",
-        emotion: Emotion.angry,
+        emotion: "angry",
+        color: Colors.red.toARGB32(),
+        createdAt: now.subtract(const Duration(days: 1, hours: 8)),
       ),
     );
 
     // Records from the past week
     records.add(
       EmotionalRecord(
-        date: now.subtract(const Duration(days: 2)),
         source: "Testing",
         description: "Worried about upcoming presentation",
-        emotion: Emotion.anxious,
+        emotion: "anxious",
+        color: Colors.orange.toARGB32(),
+        createdAt: now.subtract(const Duration(days: 2)),
       ),
     );
 
     records.add(
       EmotionalRecord(
-        date: now.subtract(const Duration(days: 3)),
         source: "Testing",
         description: "Proud of finishing difficult project",
-        emotion: Emotion.happy,
+        emotion: "happy",
+        color: Colors.green.toARGB32(),
+        createdAt: now.subtract(const Duration(days: 3)),
       ),
     );
 
     records.add(
       EmotionalRecord(
-        date: now.subtract(const Duration(days: 3, hours: 12)),
         source: "Testing",
         description: "Morning anxiety about traffic",
-        emotion: Emotion.anxious,
+        emotion: "anxious",
+        color: Colors.orange.toARGB32(),
+        createdAt: now.subtract(const Duration(days: 3, hours: 12)),
       ),
     );
 
     records.add(
       EmotionalRecord(
-        date: now.subtract(const Duration(days: 4)),
         source: "Testing",
         description: "Disappointed with test results",
-        emotion: Emotion.sad,
+        emotion: "sad",
+        color: Colors.blue.toARGB32(),
+        createdAt: now.subtract(const Duration(days: 4)),
       ),
     );
 
     records.add(
       EmotionalRecord(
-        date: now.subtract(const Duration(days: 5)),
         source: "Testing",
         description: "Excited about weekend plans",
-        emotion: Emotion.excited,
+        emotion: "excited",
+        color: Colors.yellow.toARGB32(),
+        createdAt: now.subtract(const Duration(days: 5)),
       ),
     );
 
     records.add(
       EmotionalRecord(
-        date: now.subtract(const Duration(days: 6)),
         source: "Testing",
         description: "Scared after watching horror movie",
-        emotion: Emotion.scared,
+        emotion: "scared",
+        color: Colors.purple.toARGB32(),
+        createdAt: now.subtract(const Duration(days: 6)),
       ),
     );
 
     records.add(
       EmotionalRecord(
-        date: now.subtract(const Duration(days: 7)),
         source: "Testing",
         description: "Frustrated with slow progress",
-        emotion: Emotion.angry,
+        emotion: "angry",
+        color: Colors.red.toARGB32(),
+        createdAt: now.subtract(const Duration(days: 7)),
       ),
     );
 
     // Records from 2 weeks ago
     records.add(
       EmotionalRecord(
-        date: now.subtract(const Duration(days: 10)),
         source: "Testing",
         description: "Proud of fitness achievements",
-        emotion: Emotion.excited,
+        emotion: "excited",
+        color: Colors.yellow.toARGB32(),
+        createdAt: now.subtract(const Duration(days: 10)),
       ),
     );
 
     records.add(
       EmotionalRecord(
-        date: now.subtract(const Duration(days: 11)),
         source: "Testing",
         description: "Supported friend through difficult time",
-        emotion: Emotion.tender,
+        emotion: "tender",
+        color: Colors.pink.toARGB32(),
+        createdAt: now.subtract(const Duration(days: 11)),
       ),
     );
 
     records.add(
       EmotionalRecord(
-        date: now.subtract(const Duration(days: 12)),
         source: "Testing",
         description: "Nervous about doctor's appointment",
-        emotion: Emotion.anxious,
+        emotion: "anxious",
+        color: Colors.orange.toARGB32(),
+        createdAt: now.subtract(const Duration(days: 12)),
       ),
     );
 
     records.add(
       EmotionalRecord(
-        date: now.subtract(const Duration(days: 13)),
         source: "Testing",
         description: "Happy about surprise gift",
-        emotion: Emotion.happy,
+        emotion: "happy",
+        color: Colors.green.toARGB32(),
+        createdAt: now.subtract(const Duration(days: 13)),
       ),
     );
 
     // Multiple emotions on the same day (two weeks ago)
     records.add(
       EmotionalRecord(
-        date: now.subtract(const Duration(days: 14)),
         source: "Testing",
         description: "Sad about missed opportunity",
-        emotion: Emotion.sad,
+        emotion: "sad",
+        color: Colors.blue.toARGB32(),
+        createdAt: now.subtract(const Duration(days: 14)),
       ),
     );
 
     records.add(
       EmotionalRecord(
-        date: now.subtract(const Duration(days: 14, hours: 6)),
         source: "Testing",
         description: "Happy about surprise visit",
-        emotion: Emotion.happy,
+        emotion: "happy",
+        color: Colors.green.toARGB32(),
+        createdAt: now.subtract(const Duration(days: 14, hours: 6)),
       ),
     );
 
     records.add(
       EmotionalRecord(
-        date: now.subtract(const Duration(days: 14, hours: 12)),
         source: "Testing",
         description: "Anxious about tomorrow's meeting",
-        emotion: Emotion.anxious,
+        emotion: "anxious",
+        color: Colors.orange.toARGB32(),
+        createdAt: now.subtract(const Duration(days: 14, hours: 12)),
       ),
     );
 
     // Records from 3-4 weeks ago
     records.add(
       EmotionalRecord(
-        date: now.subtract(const Duration(days: 18)),
         source: "Testing",
         description: "Excited about new opportunity",
-        emotion: Emotion.excited,
+        emotion: "excited",
+        color: Colors.yellow.toARGB32(),
+        createdAt: now.subtract(const Duration(days: 18)),
       ),
     );
 
     records.add(
       EmotionalRecord(
-        date: now.subtract(const Duration(days: 20)),
         source: "Testing",
         description: "Terrified of spider in room",
-        emotion: Emotion.scared,
+        emotion: "scared",
+        color: Colors.purple.toARGB32(),
+        createdAt: now.subtract(const Duration(days: 20)),
       ),
     );
 
     records.add(
       EmotionalRecord(
-        date: now.subtract(const Duration(days: 22)),
         source: "Testing",
         description: "Furious after argument",
-        emotion: Emotion.angry,
+        emotion: "angry",
+        color: Colors.red.toARGB32(),
+        createdAt: now.subtract(const Duration(days: 22)),
       ),
     );
 
     records.add(
       EmotionalRecord(
-        date: now.subtract(const Duration(days: 25)),
         source: "Testing",
         description: "Overwhelmed with workload",
-        emotion: Emotion.anxious,
+        emotion: "anxious",
+        color: Colors.orange.toARGB32(),
+        createdAt: now.subtract(const Duration(days: 25)),
       ),
     );
 
     records.add(
       EmotionalRecord(
-        date: now.subtract(const Duration(days: 27)),
         source: "Testing",
         description: "Melancholic about old memories",
-        emotion: Emotion.sad,
+        emotion: "sad",
+        color: Colors.blue.toARGB32(),
+        createdAt: now.subtract(const Duration(days: 27)),
       ),
     );
 
     records.add(
       EmotionalRecord(
-        date: now.subtract(const Duration(days: 30)),
         source: "Testing",
         description: "In love with new project",
-        emotion: Emotion.tender,
+        emotion: "tender",
+        color: Colors.pink.toARGB32(),
+        createdAt: now.subtract(const Duration(days: 30)),
       ),
     );
 
     // Older records (from past months)
     records.add(
       EmotionalRecord(
-        date: now.subtract(const Duration(days: 40)),
         source: "Testing",
         description: "Happy after great workout",
-        emotion: Emotion.happy,
+        emotion: "happy",
+        color: Colors.green.toARGB32(),
+        createdAt: now.subtract(const Duration(days: 40)),
       ),
     );
 
     records.add(
       EmotionalRecord(
-        date: now.subtract(const Duration(days: 45)),
         source: "Testing",
         description: "Felt connected during deep conversation",
-        emotion: Emotion.tender,
+        emotion: "tender",
+        color: Colors.pink.toARGB32(),
+        createdAt: now.subtract(const Duration(days: 45)),
       ),
     );
 
     records.add(
       EmotionalRecord(
-        date: now.subtract(const Duration(days: 60)),
         source: "Testing",
         description: "Thrilled about successful project launch",
-        emotion: Emotion.excited,
+        emotion: "excited",
+        color: Colors.yellow.toARGB32(),
+        createdAt: now.subtract(const Duration(days: 60)),
       ),
     );
 
@@ -279,171 +307,174 @@ class DataPresetService {
       return [];
     }
 
-    // Find different patterns by name
-    final boxBreathing = patterns.firstWhere(
-      (p) => p.name == 'Box Breathing',
-      orElse: () => patterns.first,
-    );
+    // Extract pattern names from the list of BreathingPattern objects
+    final patternNames = patterns.map((p) => p.name).toList();
 
-    final relaxationBreath = patterns.firstWhere(
-      (p) => p.name == '4-7-8 Relaxation Breath',
-      orElse: () => patterns.first,
-    );
+    // Find different pattern names
+    final boxBreathingName =
+        patternNames.contains('Box Breathing')
+            ? 'Box Breathing'
+            : (patterns.isNotEmpty ? patterns.first.name : '');
 
-    final calmBreath = patterns.firstWhere(
-      (p) => p.name == 'Calm Breath',
-      orElse: () => patterns.first,
-    );
+    final relaxationBreathName =
+        patternNames.contains('4-7-8 Relaxation Breath')
+            ? '4-7-8 Relaxation Breath'
+            : (patterns.isNotEmpty ? patterns.first.name : '');
 
-    final wimHof = patterns.firstWhere(
-      (p) => p.name == 'Wim Hof Method',
-      orElse: () => patterns.first,
-    );
+    final calmBreathName =
+        patternNames.contains('Calm Breath')
+            ? 'Calm Breath'
+            : (patterns.isNotEmpty ? patterns.first.name : '');
 
-    final yogaBreath = patterns.firstWhere(
-      (p) => p.name == 'Deep Yoga Breath',
-      orElse: () => patterns.first,
-    );
+    final wimHofName =
+        patternNames.contains('Wim Hof Method')
+            ? 'Wim Hof Method'
+            : (patterns.isNotEmpty ? patterns.first.name : '');
+
+    final yogaBreathName =
+        patternNames.contains('Deep Yoga Breath')
+            ? 'Deep Yoga Breath'
+            : (patterns.isNotEmpty ? patterns.first.name : '');
 
     final sessions = <BreathingSessionData>[];
 
     // Today's sessions
     sessions.add(
       BreathingSessionData(
-        date: now,
-        pattern: boxBreathing,
-        rating: 4.5,
+        pattern: boxBreathingName,
+        rating: 4.0,
         comment: "Felt refreshed after this session",
+        createdAt: now,
       ),
     );
 
     // Sessions from the past week
     sessions.add(
       BreathingSessionData(
-        date: now.subtract(const Duration(days: 1)),
-        pattern: relaxationBreath,
+        pattern: relaxationBreathName,
         rating: 5.0,
         comment: "Really helped with anxiety before presentation",
+        createdAt: now.subtract(const Duration(days: 1)),
       ),
     );
 
     sessions.add(
       BreathingSessionData(
-        date: now.subtract(const Duration(days: 2)),
-        pattern: calmBreath,
+        pattern: calmBreathName,
         rating: 3.5,
         comment: "Helped a little but still felt stressed",
+        createdAt: now.subtract(const Duration(days: 2)),
       ),
     );
 
     sessions.add(
       BreathingSessionData(
-        date: now.subtract(const Duration(days: 3)),
-        pattern: relaxationBreath,
+        pattern: relaxationBreathName,
         rating: 5.0,
         comment: "Really helped with anxiety",
+        createdAt: now.subtract(const Duration(days: 3)),
       ),
     );
 
     sessions.add(
       BreathingSessionData(
-        date: now.subtract(const Duration(days: 5)),
-        pattern: yogaBreath,
+        pattern: yogaBreathName,
         rating: 4.0,
         comment: "Good morning session",
+        createdAt: now.subtract(const Duration(days: 5)),
       ),
     );
 
     sessions.add(
       BreathingSessionData(
-        date: now.subtract(const Duration(days: 7)),
-        pattern: boxBreathing,
+        pattern: boxBreathingName,
         rating: 3.5,
         comment: "Was distracted during session",
+        createdAt: now.subtract(const Duration(days: 7)),
       ),
     );
 
     // Sessions from 2 weeks ago
     sessions.add(
       BreathingSessionData(
-        date: now.subtract(const Duration(days: 10)),
-        pattern: wimHof,
+        pattern: wimHofName,
         rating: 4.8,
         comment: "Intense but energizing experience",
+        createdAt: now.subtract(const Duration(days: 10)),
       ),
     );
 
     sessions.add(
       BreathingSessionData(
-        date: now.subtract(const Duration(days: 12)),
-        pattern: calmBreath,
+        pattern: calmBreathName,
         rating: 4.2,
         comment: "Helped calm nerves before interview",
+        createdAt: now.subtract(const Duration(days: 12)),
       ),
     );
 
     sessions.add(
       BreathingSessionData(
-        date: now.subtract(const Duration(days: 14)),
-        pattern: relaxationBreath,
+        pattern: relaxationBreathName,
         rating: 4.0,
         comment: "Combined with meditation, very effective",
+        createdAt: now.subtract(const Duration(days: 14)),
       ),
     );
 
     // Sessions from past month
     sessions.add(
       BreathingSessionData(
-        date: now.subtract(const Duration(days: 16)),
-        pattern: boxBreathing,
+        pattern: boxBreathingName,
         rating: 3.7,
         comment: "Decent session but room was too hot",
+        createdAt: now.subtract(const Duration(days: 16)),
       ),
     );
 
     sessions.add(
       BreathingSessionData(
-        date: now.subtract(const Duration(days: 21)),
-        pattern: yogaBreath,
+        pattern: yogaBreathName,
         rating: 4.5,
         comment: "Perfect end to yoga practice",
+        createdAt: now.subtract(const Duration(days: 21)),
       ),
     );
 
     sessions.add(
       BreathingSessionData(
-        date: now.subtract(const Duration(days: 25)),
-        pattern: wimHof,
+        pattern: wimHofName,
         rating: 5.0,
         comment: "Amazing energy boost",
+        createdAt: now.subtract(const Duration(days: 25)),
       ),
     );
 
     sessions.add(
       BreathingSessionData(
-        date: now.subtract(const Duration(days: 30)),
-        pattern: relaxationBreath,
+        pattern: relaxationBreathName,
         rating: 4.3,
         comment: "Helped with insomnia",
+        createdAt: now.subtract(const Duration(days: 30)),
       ),
     );
 
     // Older sessions
     sessions.add(
       BreathingSessionData(
-        date: now.subtract(const Duration(days: 40)),
-        pattern: calmBreath,
+        pattern: calmBreathName,
         rating: 3.8,
         comment: "Good but noisy environment",
+        createdAt: now.subtract(const Duration(days: 40)),
       ),
     );
 
     sessions.add(
       BreathingSessionData(
-        date: now.subtract(const Duration(days: 50)),
-        pattern: boxBreathing,
+        pattern: boxBreathingName,
         rating: 4.7,
         comment: "Perfect focus during session",
+        createdAt: now.subtract(const Duration(days: 50)),
       ),
     );
 
