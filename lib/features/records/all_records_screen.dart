@@ -3,19 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:logger/logger.dart';
 import 'package:emotion_ai/data/models/breathing_session.dart';
 import 'package:emotion_ai/data/models/emotional_record.dart';
-import 'package:emotion_ai/features/auth/auth_provider.dart';
+import 'presentation/providers/all_records_provider.dart';
 
 final logger = Logger();
 
-final allRecordsProvider = FutureProvider<Map<String, dynamic>>((ref) async {
-  final apiService = ref.watch(apiServiceProvider);
-  final emotionalRecords = await apiService.getEmotionalRecords();
-  final breathingSessions = await apiService.getBreathingSessions();
-  return {
-    'emotional_records': emotionalRecords,
-    'breathing_sessions': breathingSessions,
-  };
-});
+// Provider moved to presentation/providers/all_records_provider.dart
 
 class AllRecordsScreen extends ConsumerWidget {
   const AllRecordsScreen({super.key});
@@ -45,7 +37,7 @@ class AllRecordsScreen extends ConsumerWidget {
 
           return RefreshIndicator(
             onRefresh: () async {
-              ref.refresh(allRecordsProvider);
+              ref.invalidate(allRecordsProvider);
             },
             child: SingleChildScrollView(
               physics: const AlwaysScrollableScrollPhysics(),
@@ -108,21 +100,32 @@ class AllRecordsScreen extends ConsumerWidget {
                       )
                       : const Icon(Icons.emoji_emotions, color: Colors.white),
             ),
-            title: Text(record.customEmotionName ?? record.emotion),
+            title: Text(
+              record.customEmotionName ?? record.emotion,
+              overflow: TextOverflow.ellipsis,
+              maxLines: 1,
+            ),
             subtitle: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(record.description),
+                Text(
+                  record.description,
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 2,
+                ),
                 const SizedBox(height: 4),
                 Text(
                   'Source: ${record.source}',
                   style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
                 ),
               ],
             ),
             trailing: Text(
               '${record.createdAt.day}/${record.createdAt.month}/${record.createdAt.year}',
-              style: TextStyle(color: Colors.grey[700]),
+              style: TextStyle(color: Colors.grey[700], fontSize: 11),
+              overflow: TextOverflow.ellipsis,
             ),
           ),
         );
@@ -154,18 +157,31 @@ class AllRecordsScreen extends ConsumerWidget {
               backgroundColor: Colors.lightBlue,
               child: Icon(Icons.air, color: Colors.white),
             ),
-            title: Text(session.pattern),
+            title: Text(
+              session.pattern,
+              overflow: TextOverflow.ellipsis,
+              maxLines: 1,
+            ),
             subtitle: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Rating: ${session.rating}/10'),
+                Text(
+                  'Rating: ${session.rating}/10',
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
+                ),
                 if (session.comment != null && session.comment!.isNotEmpty)
-                  Text('Comment: ${session.comment!}'),
+                  Text(
+                    'Comment: ${session.comment!}',
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 2,
+                  ),
               ],
             ),
             trailing: Text(
               '${session.createdAt.day}/${session.createdAt.month}/${session.createdAt.year}',
-              style: TextStyle(color: Colors.grey[700]),
+              style: TextStyle(color: Colors.grey[700], fontSize: 11),
+              overflow: TextOverflow.ellipsis,
             ),
           ),
         );

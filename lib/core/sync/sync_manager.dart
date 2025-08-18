@@ -3,6 +3,7 @@
 /// This service coordinates all data synchronization between local SQLite
 /// and remote API, providing conflict resolution, background sync queuing,
 /// and intelligent data merging.
+library;
 
 import 'dart:async';
 import 'dart:isolate';

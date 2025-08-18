@@ -2,6 +2,7 @@
 ///
 /// Displays a prominent banner when the app is offline, showing
 /// offline mode status and providing context about available features.
+library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';

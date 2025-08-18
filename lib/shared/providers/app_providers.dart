@@ -2,6 +2,7 @@
 ///
 /// This file contains all Riverpod providers for the app, providing
 /// a single source of truth for dependency injection and service management.
+library;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/sqlite_helper.dart';

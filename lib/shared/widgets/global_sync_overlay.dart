@@ -3,6 +3,7 @@
 /// A global overlay widget that displays sync status and offline banners
 /// throughout the app. This should be added to the main scaffold or app-level
 /// widget tree to provide consistent sync status indication.
+library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';

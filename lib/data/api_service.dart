@@ -346,14 +346,36 @@ class ApiService {
 
   // User Limitations (from backend)
   Future<UserLimitations> getUserLimitations() async {
-    final response = await http.get(
-      Uri.parse('${ApiConfig.baseUrl}/user/limitations'),
-      headers: await _getHeaders(),
-    );
-    if (response.statusCode == 200) {
-      return UserLimitations.fromJson(jsonDecode(response.body));
-    } else {
-      throw Exception('Failed to get user limitations');
+    try {
+      final response = await http.get(
+        Uri.parse('${ApiConfig.baseUrl}/user/limitations'),
+        headers: await _getHeaders(),
+      );
+
+      return _handleResponse(response, (data) {
+        // Map monthly fields from API to UserLimitations daily-like fields expected by UI
+        final monthlyLimit = (data['monthly_token_limit'] ?? 250000) as int;
+        final monthlyUsed = (data['monthly_tokens_used'] ?? 0) as int;
+        // usagePercentage available if the widget needs it later
+        final canMakeRequest = data['can_make_request'] ?? true;
+        final limitMessage = data['limit_message'];
+        final reset = data['limit_reset_time'];
+
+        return UserLimitations(
+          dailyTokenLimit: monthlyLimit,
+          dailyTokensUsed: monthlyUsed,
+          isUnlimited: false,
+          canMakeRequest: canMakeRequest,
+          limitMessage: limitMessage,
+          limitResetTime: reset != null ? DateTime.parse(reset) : null,
+          dailyCostLimit: 0,
+          dailyCostUsed: 0,
+        );
+      });
+    } on ApiException {
+      rethrow;
+    } catch (e) {
+      throw ApiExceptionFactory.fromException(e);
     }
   }
 

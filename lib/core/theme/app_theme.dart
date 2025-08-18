@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'tokens.dart';
 
 class AppTheme {
   // Violet/Reddish/Pinkish Color Palette
@@ -45,6 +46,7 @@ class AppTheme {
   static ThemeData get lightTheme {
     return ThemeData(
       useMaterial3: true,
+      extensions: const [AppTokens()],
       colorScheme: ColorScheme.light(
         primary: primaryViolet,
         onPrimary: onPrimary,
@@ -54,10 +56,8 @@ class AppTheme {
         onTertiary: onPrimary,
         surface: surface,
         onSurface: onSurface,
-        surfaceVariant: surfaceVariant,
+        surfaceContainerHighest: surfaceVariant,
         onSurfaceVariant: onSurfaceVariant,
-        background: background,
-        onBackground: onSurface,
         error: primaryRed,
         onError: onPrimary,
       ),
@@ -166,14 +166,14 @@ class AppTheme {
 
       // Switch Theme
       switchTheme: SwitchThemeData(
-        thumbColor: MaterialStateProperty.resolveWith((states) {
-          if (states.contains(MaterialState.selected)) {
+        thumbColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) {
             return primaryViolet;
           }
           return onSurfaceVariant;
         }),
-        trackColor: MaterialStateProperty.resolveWith((states) {
-          if (states.contains(MaterialState.selected)) {
+        trackColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) {
             return lightViolet;
           }
           return surfaceVariant;
@@ -182,8 +182,8 @@ class AppTheme {
 
       // Radio Theme
       radioTheme: RadioThemeData(
-        fillColor: MaterialStateProperty.resolveWith((states) {
-          if (states.contains(MaterialState.selected)) {
+        fillColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) {
             return primaryViolet;
           }
           return onSurfaceVariant;
@@ -192,13 +192,13 @@ class AppTheme {
 
       // Checkbox Theme
       checkboxTheme: CheckboxThemeData(
-        fillColor: MaterialStateProperty.resolveWith((states) {
-          if (states.contains(MaterialState.selected)) {
+        fillColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) {
             return primaryViolet;
           }
           return Colors.transparent;
         }),
-        checkColor: MaterialStateProperty.all(onPrimary),
+        checkColor: WidgetStateProperty.all(onPrimary),
         side: BorderSide(color: primaryViolet, width: 2),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
       ),

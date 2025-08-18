@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:emotion_ai/data/api_service.dart';
+import 'package:emotion_ai/data/services/profile_service.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -32,6 +33,17 @@ class AuthNotifier extends StateNotifier<bool> {
       final authResponse = await _apiService.login(email, password);
       if (authResponse != null) {
         state = true;
+
+        // Load user profile after successful login
+        try {
+          final profileService = ProfileService();
+          await profileService.getUserProfile();
+          // Profile loaded successfully - could store in shared preferences or state
+        } catch (e) {
+          // Profile not found or error loading - this is normal for new users
+          print('No existing profile found: $e');
+        }
+
         return true;
       }
       return false;

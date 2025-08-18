@@ -6,6 +6,10 @@ import '../../shared/services/data_presets.dart';
 import '../../shared/services/sqlite_helper.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:logger/logger.dart';
+import 'package:emotion_ai/core/theme/app_theme.dart';
+import 'package:emotion_ai/shared/widgets/gradient_app_bar.dart';
+import 'package:emotion_ai/shared/widgets/themed_card.dart';
+import 'package:emotion_ai/shared/widgets/primary_gradient_button.dart';
 
 final logger = Logger();
 
@@ -399,85 +403,89 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
         ),
       );
     }
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8.0),
-      child: Column(
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Padding(
-                padding: EdgeInsets.only(left: 8.0),
-                child: Text(
-                  'Calendar',
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                ),
-              ),
-              ElevatedButton.icon(
+    return Container(
+      decoration: AppTheme.backgroundDecoration,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8.0),
+        child: Column(
+          children: [
+            const SizedBox(height: 8),
+            const GradientAppBar(title: 'Calendar'),
+            const SizedBox(height: 8),
+            ThemedCard(
+              child: PrimaryGradientButton(
                 onPressed: _isLoadingPresets ? null : _loadPresetData,
-                icon:
+                child:
                     _isLoadingPresets
                         ? const SizedBox(
                           width: 20,
                           height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
                         )
-                        : const Icon(Icons.data_array),
-                label: const Text('Load Test Data'),
+                        : const Text('Load Test Data'),
               ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          TableCalendar(
-            firstDay: DateTime.utc(2020, 1, 1),
-            lastDay: DateTime.utc(2030, 12, 31),
-            focusedDay: _focusedDay,
-            calendarFormat: _calendarFormat,
-            selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
-            onDaySelected: (selectedDay, focusedDay) {
-              setState(() {
-                _selectedDay = selectedDay;
-                _focusedDay = focusedDay;
-              });
-            },
-            onFormatChanged: (format) {
-              setState(() {
-                _calendarFormat = format;
-              });
-            },
-            onPageChanged: (focusedDay) {
-              _focusedDay = focusedDay;
-            },
-            calendarStyle: const CalendarStyle(
-              markersMaxCount: 3,
-              markerSize: 6,
-              markerMargin: EdgeInsets.symmetric(horizontal: 0.5),
             ),
-            calendarBuilders: CalendarBuilders(
-              markerBuilder: (context, day, events) {
-                return Row(
-                  mainAxisSize: MainAxisSize.min,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: _buildEventMarkers(
-                    day,
+            const SizedBox(height: 8),
+            ThemedCard(
+              padding: const EdgeInsets.all(8),
+              child: TableCalendar(
+                firstDay: DateTime.utc(2020, 1, 1),
+                lastDay: DateTime.utc(2030, 12, 31),
+                focusedDay: _focusedDay,
+                calendarFormat: _calendarFormat,
+                selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
+                onDaySelected: (selectedDay, focusedDay) {
+                  setState(() {
+                    _selectedDay = selectedDay;
+                    _focusedDay = focusedDay;
+                  });
+                },
+                onFormatChanged: (format) {
+                  setState(() {
+                    _calendarFormat = format;
+                  });
+                },
+                onPageChanged: (focusedDay) {
+                  _focusedDay = focusedDay;
+                },
+                calendarStyle: const CalendarStyle(
+                  markersMaxCount: 3,
+                  markerSize: 6,
+                  markerMargin: EdgeInsets.symmetric(horizontal: 0.5),
+                ),
+                calendarBuilders: CalendarBuilders(
+                  markerBuilder: (context, day, events) {
+                    return Row(
+                      mainAxisSize: MainAxisSize.min,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: _buildEventMarkers(
+                        day,
+                        calendarState.emotionalEvents,
+                        calendarState.breathingEvents,
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Expanded(
+              child: ThemedCard(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: ListView(
+                  children: _buildDetailsForSelectedDay(
+                    _selectedDay ?? _focusedDay,
                     calendarState.emotionalEvents,
                     calendarState.breathingEvents,
                   ),
-                );
-              },
-            ),
-          ),
-          const SizedBox(height: 16),
-          Expanded(
-            child: ListView(
-              children: _buildDetailsForSelectedDay(
-                _selectedDay ?? _focusedDay,
-                calendarState.emotionalEvents,
-                calendarState.breathingEvents,
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

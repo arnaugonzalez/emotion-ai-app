@@ -4,8 +4,13 @@ import 'package:go_router/go_router.dart';
 import '../providers/therapy_chat_provider.dart';
 import '../widgets/chat_message_widget.dart';
 import '../widgets/agent_selector.dart';
-import '../../../shared/providers/user_limitations_provider.dart';
+import '../../usage/providers/user_limitations_provider.dart';
 import 'package:intl/intl.dart';
+import 'package:emotion_ai/core/theme/app_theme.dart';
+import 'package:emotion_ai/shared/widgets/gradient_app_bar.dart';
+import 'package:emotion_ai/shared/widgets/themed_card.dart';
+import 'package:emotion_ai/shared/widgets/primary_gradient_button.dart';
+import 'package:flutter/foundation.dart';
 
 class TherapyChatScreen extends ConsumerStatefulWidget {
   const TherapyChatScreen({super.key});
@@ -175,25 +180,36 @@ class _TherapyChatScreenState extends ConsumerState<TherapyChatScreen> {
     final limitations = ref.watch(limitationsDataProvider);
     final canMakeRequest = limitations?.canMakeRequest ?? true;
 
-    if (chatState.messages.isNotEmpty) {
-      _scrollToBottom();
+    // Debug information
+    print(
+      'TherapyChatScreen: Building with chatState: ${chatState.messages.length} messages',
+    );
+    print('TherapyChatScreen: isLoading: ${chatState.isLoading}');
+    print('TherapyChatScreen: error: ${chatState.error}');
+    print('TherapyChatScreen: selectedAgent: ${chatState.selectedAgent}');
+
+    // Safely scroll to bottom when messages are added
+    if (chatState.messages.isNotEmpty && mounted) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _scrollController.hasClients) {
+          try {
+            _scrollController.animateTo(
+              _scrollController.position.maxScrollExtent,
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeOut,
+            );
+          } catch (e) {
+            print('Error scrolling to bottom: $e');
+          }
+        }
+      });
     }
 
     return Scaffold(
       appBar: AppBar(
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text('Talk it Through'),
-            Text(
-              '${chatState.selectedAgent == 'therapy' ? 'Therapy' : 'Wellness'} Assistant',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
-              ),
-            ),
-          ],
-        ),
+        title: const Text('Talk it Through'),
+        backgroundColor: AppTheme.primaryViolet,
+        foregroundColor: Colors.white,
         actions: [
           IconButton(
             icon: Icon(
@@ -211,147 +227,169 @@ class _TherapyChatScreenState extends ConsumerState<TherapyChatScreen> {
           ),
         ],
       ),
-      body: SafeArea(
-        child: Column(
-          children: [
-            // Backend limitations warning
-            if (!canMakeRequest && limitations?.limitMessage != null)
-              Container(
-                padding: const EdgeInsets.all(8.0),
-                color: Theme.of(context).colorScheme.errorContainer,
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.warning_rounded,
-                      color: Theme.of(context).colorScheme.error,
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        limitations!.limitMessage!,
-                        style: TextStyle(
-                          color: Theme.of(context).colorScheme.onErrorContainer,
-                        ),
-                      ),
-                    ),
-                    TextButton(
-                      onPressed: _showTokenLimitDialog,
-                      child: const Text('Learn More'),
-                    ),
-                  ],
-                ),
-              ),
-
-            // Chat messages
-            Expanded(
-              child:
-                  chatState.messages.isEmpty
-                      ? const Center(
-                        child: Text('Your conversation will appear here'),
-                      )
-                      : ListView.builder(
-                        controller: _scrollController,
-                        padding: const EdgeInsets.all(16),
-                        itemCount: chatState.messages.length,
-                        itemBuilder: (context, index) {
-                          final message = chatState.messages[index];
-                          return ChatMessageWidget(message: message);
-                        },
-                      ),
-            ),
-
-            // Loading indicator
-            if (chatState.isLoading)
-              const Padding(
-                padding: EdgeInsets.all(8.0),
-                child: LinearProgressIndicator(),
-              ),
-
-            // Error message
-            if (chatState.error != null)
-              Container(
-                padding: const EdgeInsets.all(8.0),
-                color: Colors.red.withAlpha(30),
-                child: Row(
-                  children: [
-                    const Icon(Icons.error_outline, color: Colors.red),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        chatState.error!,
-                        style: const TextStyle(color: Colors.red),
-                      ),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.close),
-                      onPressed: () {
-                        ref.read(therapyChatProvider.notifier).clearError();
-                      },
-                    ),
-                  ],
-                ),
-              ),
-
-            // Message input
+      body: Column(
+        children: [
+          // Backend limitations warning
+          if (!canMakeRequest && limitations?.limitMessage != null)
             Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 8.0,
-                vertical: 4.0,
-              ),
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surface,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
-                    blurRadius: 4,
-                    offset: const Offset(0, -2),
+              padding: const EdgeInsets.all(16),
+              color: Colors.red.shade50,
+              child: Row(
+                children: [
+                  const Icon(Icons.warning_rounded, color: Colors.red),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      limitations!.limitMessage!,
+                      style: const TextStyle(color: Colors.red),
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: _showTokenLimitDialog,
+                    child: const Text('Learn More'),
                   ),
                 ],
               ),
-              child: SafeArea(
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Expanded(
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxHeight: 120),
-                        child: TextField(
-                          controller: _messageController,
-                          enabled: canMakeRequest && !chatState.isLoading,
-                          decoration: InputDecoration(
-                            hintText:
-                                !canMakeRequest
-                                    ? 'Usage limit reached'
-                                    : 'Type your message...',
-                            border: const OutlineInputBorder(),
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 8,
-                            ),
-                            isDense: true,
-                          ),
-                          maxLines: null,
-                          textCapitalization: TextCapitalization.sentences,
-                          onSubmitted:
-                              (_) => !canMakeRequest ? null : _sendMessage(),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 4),
-                    IconButton(
-                      onPressed:
-                          (!canMakeRequest || chatState.isLoading)
-                              ? null
-                              : _sendMessage,
-                      icon: const Icon(Icons.send),
-                      color: Theme.of(context).colorScheme.primary,
-                    ),
-                  ],
-                ),
+            ),
+
+          // Debug info (temporary)
+          if (kDebugMode)
+            Container(
+              padding: const EdgeInsets.all(8),
+              color: Colors.yellow.withOpacity(0.3),
+              child: Text(
+                'Debug: ${chatState.messages.length} messages, Agent: ${chatState.selectedAgent}',
+                style: const TextStyle(fontSize: 12),
               ),
             ),
-          ],
-        ),
+
+          // Chat messages
+          Expanded(
+            child:
+                chatState.messages.isEmpty
+                    ? const Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.chat_bubble_outline,
+                            size: 64,
+                            color: Colors.grey,
+                          ),
+                          SizedBox(height: 16),
+                          Text(
+                            'Your conversation will appear here',
+                            style: TextStyle(fontSize: 18, color: Colors.grey),
+                          ),
+                          SizedBox(height: 8),
+                          Text(
+                            'Start by typing a message below',
+                            style: TextStyle(fontSize: 14, color: Colors.grey),
+                          ),
+                        ],
+                      ),
+                    )
+                    : ListView.builder(
+                      controller: _scrollController,
+                      padding: const EdgeInsets.all(16),
+                      itemCount: chatState.messages.length,
+                      itemBuilder: (context, index) {
+                        final message = chatState.messages[index];
+                        return ChatMessageWidget(message: message);
+                      },
+                    ),
+          ),
+
+          // Loading indicator
+          if (chatState.isLoading)
+            Container(
+              padding: const EdgeInsets.all(8.0),
+              child: const LinearProgressIndicator(),
+            ),
+
+          // Error message
+          if (chatState.error != null)
+            Container(
+              padding: const EdgeInsets.all(8.0),
+              color: Colors.red.withAlpha(30),
+              child: Row(
+                children: [
+                  const Icon(Icons.error_outline, color: Colors.red),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      chatState.error!,
+                      style: const TextStyle(color: Colors.red),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () {
+                      ref.read(therapyChatProvider.notifier).clearError();
+                    },
+                  ),
+                ],
+              ),
+            ),
+
+          // Message input
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 4,
+                  offset: const Offset(0, -2),
+                ),
+              ],
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _messageController,
+                    enabled: canMakeRequest && !chatState.isLoading,
+                    decoration: InputDecoration(
+                      hintText:
+                          !canMakeRequest
+                              ? 'Usage limit reached'
+                              : 'Type your message...',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
+                    ),
+                    maxLines: null,
+                    textCapitalization: TextCapitalization.sentences,
+                    onSubmitted: (_) => !canMakeRequest ? null : _sendMessage(),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                ElevatedButton(
+                  onPressed:
+                      (!canMakeRequest || chatState.isLoading)
+                          ? null
+                          : _sendMessage,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primaryViolet,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 12,
+                    ),
+                  ),
+                  child: const Text('Send'),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

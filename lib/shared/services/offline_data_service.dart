@@ -183,15 +183,13 @@ class OfflineDataService {
   Future<DataResult<List<EmotionalRecord>>> getEmotionalRecords({
     DataSource preferredSource = DataSource.hybrid,
   }) async {
-    switch (preferredSource) {
-      case DataSource.local:
-        return _getEmotionalRecordsLocal();
-      case DataSource.remote:
-        return _getEmotionalRecordsRemote();
-      case DataSource.hybrid:
-      default:
-        return _getEmotionalRecordsHybrid();
+    if (preferredSource == DataSource.local) {
+      return _getEmotionalRecordsLocal();
     }
+    if (preferredSource == DataSource.remote) {
+      return _getEmotionalRecordsRemote();
+    }
+    return _getEmotionalRecordsHybrid();
   }
 
   Future<DataResult<List<EmotionalRecord>>> _getEmotionalRecordsLocal() async {
@@ -279,15 +277,13 @@ class OfflineDataService {
   Future<DataResult<List<BreathingSessionData>>> getBreathingSessions({
     DataSource preferredSource = DataSource.hybrid,
   }) async {
-    switch (preferredSource) {
-      case DataSource.local:
-        return _getBreathingSessionsLocal();
-      case DataSource.remote:
-        return _getBreathingSessionsRemote();
-      case DataSource.hybrid:
-      default:
-        return _getBreathingSessionsHybrid();
+    if (preferredSource == DataSource.local) {
+      return _getBreathingSessionsLocal();
     }
+    if (preferredSource == DataSource.remote) {
+      return _getBreathingSessionsRemote();
+    }
+    return _getBreathingSessionsHybrid();
   }
 
   Future<DataResult<List<BreathingSessionData>>>

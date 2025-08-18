@@ -41,4 +41,17 @@ class CustomEmotion {
   Map<String, dynamic> toMap() {
     return {'id': id, 'name': name, 'color': color};
   }
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+
+    return other is CustomEmotion &&
+        other.id == id &&
+        other.name == name &&
+        other.color == color;
+  }
+
+  @override
+  int get hashCode => id.hashCode ^ name.hashCode ^ color.hashCode;
 }

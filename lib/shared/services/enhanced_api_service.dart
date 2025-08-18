@@ -2,6 +2,7 @@
 ///
 /// Wraps the existing API service with circuit breaker pattern,
 /// intelligent retry strategies, and centralized error handling.
+library;
 
 import 'dart:async';
 import '../../data/api_service.dart';

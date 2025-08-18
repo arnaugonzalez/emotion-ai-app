@@ -1,279 +1,200 @@
-class UserProfile {
-  final String? id;
-  final String? name;
-  final int? age;
-  final String? gender;
-  final String? occupation;
-  final String? country;
-  final String? personalityType;
-  final String? relaxationTime;
-  final String? selfcareFrequency;
-  final List<String> relaxationTools;
-  final bool? hasPreviousMentalHealthAppExperience;
-  final String? therapyChatHistoryPreference;
+import 'package:json_annotation/json_annotation.dart';
 
-  // Backend-aligned fields for therapy/wellness
-  final List<String> goals;
-  final List<String> concerns;
-  final List<String> preferredActivities;
-  final List<String> therapyGoals;
-  final List<String> wellnessGoals;
-  final List<String> copingStrategies;
-  final List<String> mindfulnessPractices;
-  final String? communicationStyle;
-  final String? timezone;
-  final int? preferredSessionLength; // in minutes
-  final List<Map<String, String>> crisisContacts;
+part 'user_profile.g.dart';
 
-  final DateTime? createdAt;
-  final DateTime? updatedAt;
+@JsonSerializable()
+class EmergencyContact {
+  final String name;
+  final String relationship;
+  final String phone;
+  final String? email;
 
-  UserProfile({
-    this.id,
-    this.name,
-    this.age,
-    this.gender,
-    this.occupation,
-    this.country,
-    this.personalityType,
-    this.relaxationTime,
-    this.selfcareFrequency,
-    this.relaxationTools = const [],
-    this.hasPreviousMentalHealthAppExperience,
-    this.therapyChatHistoryPreference,
-    this.goals = const [],
-    this.concerns = const [],
-    this.preferredActivities = const [],
-    this.therapyGoals = const [],
-    this.wellnessGoals = const [],
-    this.copingStrategies = const [],
-    this.mindfulnessPractices = const [],
-    this.communicationStyle,
-    this.timezone,
-    this.preferredSessionLength,
-    this.crisisContacts = const [],
-    this.createdAt,
-    this.updatedAt,
+  EmergencyContact({
+    required this.name,
+    required this.relationship,
+    required this.phone,
+    this.email,
   });
 
-  factory UserProfile.fromJson(Map<String, dynamic> json) {
-    return UserProfile(
-      id: json['id']?.toString(),
-      name: json['name'],
-      age: json['age'],
-      gender: json['gender'],
-      occupation: json['occupation'],
-      country: json['country'],
-      personalityType: json['personality_type'],
-      relaxationTime: json['relaxation_time'],
-      selfcareFrequency: json['selfcare_frequency'],
-      relaxationTools: List<String>.from(json['relaxation_tools'] ?? []),
-      hasPreviousMentalHealthAppExperience:
-          json['has_previous_mental_health_app_experience'],
-      therapyChatHistoryPreference: json['therapy_chat_history_preference'],
-      goals: List<String>.from(json['goals'] ?? []),
-      concerns: List<String>.from(json['concerns'] ?? []),
-      preferredActivities: List<String>.from(
-        json['preferred_activities'] ?? [],
-      ),
-      therapyGoals: List<String>.from(json['therapy_goals'] ?? []),
-      wellnessGoals: List<String>.from(json['wellness_goals'] ?? []),
-      copingStrategies: List<String>.from(json['coping_strategies'] ?? []),
-      mindfulnessPractices: List<String>.from(
-        json['mindfulness_practices'] ?? [],
-      ),
-      communicationStyle: json['communication_style'],
-      timezone: json['timezone'],
-      preferredSessionLength: json['preferred_session_length'],
-      crisisContacts: List<Map<String, String>>.from(
-        (json['crisis_contacts'] ?? []).map(
-          (contact) => Map<String, String>.from(contact),
-        ),
-      ),
-      createdAt:
-          json['created_at'] != null
-              ? DateTime.parse(json['created_at'])
-              : null,
-      updatedAt:
-          json['updated_at'] != null
-              ? DateTime.parse(json['updated_at'])
-              : null,
+  factory EmergencyContact.fromJson(Map<String, dynamic> json) =>
+      _$EmergencyContactFromJson(json);
+
+  Map<String, dynamic> toJson() => _$EmergencyContactToJson(this);
+
+  EmergencyContact copyWith({
+    String? name,
+    String? relationship,
+    String? phone,
+    String? email,
+  }) {
+    return EmergencyContact(
+      name: name ?? this.name,
+      relationship: relationship ?? this.relationship,
+      phone: phone ?? this.phone,
+      email: email ?? this.email,
     );
   }
+}
 
-  Map<String, dynamic> toJson() {
-    return {
-      'name': name,
-      'age': age,
-      'gender': gender,
-      'occupation': occupation,
-      'country': country,
-      'personality_type': personalityType,
-      'relaxation_time': relaxationTime,
-      'selfcare_frequency': selfcareFrequency,
-      'relaxation_tools': relaxationTools,
-      'has_previous_mental_health_app_experience':
-          hasPreviousMentalHealthAppExperience,
-      'therapy_chat_history_preference': therapyChatHistoryPreference,
-      'goals': goals,
-      'concerns': concerns,
-      'preferred_activities': preferredActivities,
-      'therapy_goals': therapyGoals,
-      'wellness_goals': wellnessGoals,
-      'coping_strategies': copingStrategies,
-      'mindfulness_practices': mindfulnessPractices,
-      'communication_style': communicationStyle,
-      'timezone': timezone,
-      'preferred_session_length': preferredSessionLength,
-      'crisis_contacts': crisisContacts,
-    };
-  }
+@JsonSerializable()
+class MedicalInfo {
+  final List<String> conditions;
+  final List<String> medications;
+  final List<String> allergies;
 
-  // SQLite methods
-  factory UserProfile.fromMap(Map<String, dynamic> map) {
-    return UserProfile(
-      id: map['id']?.toString(),
-      name: map['name'],
-      age: map['age'],
-      gender: map['gender'],
-      occupation: map['occupation'],
-      country: map['country'],
-      personalityType: map['personalityType'],
-      relaxationTime: map['relaxationTime'],
-      selfcareFrequency: map['selfcareFrequency'],
-      relaxationTools: map['relaxationTools']?.split(',') ?? [],
-      hasPreviousMentalHealthAppExperience:
-          map['hasPreviousMentalHealthAppExperience'] == 1,
-      therapyChatHistoryPreference: map['therapyChatHistoryPreference'],
-      goals: map['goals']?.split(',') ?? [],
-      concerns: map['concerns']?.split(',') ?? [],
-      preferredActivities: map['preferredActivities']?.split(',') ?? [],
-      therapyGoals: map['therapyGoals']?.split(',') ?? [],
-      wellnessGoals: map['wellnessGoals']?.split(',') ?? [],
-      copingStrategies: map['copingStrategies']?.split(',') ?? [],
-      mindfulnessPractices: map['mindfulnessPractices']?.split(',') ?? [],
-      communicationStyle: map['communicationStyle'],
-      timezone: map['timezone'],
-      preferredSessionLength: map['preferredSessionLength'],
-      crisisContacts: [], // Complex data stored as JSON string in practice
-      createdAt:
-          map['createdAt'] != null ? DateTime.parse(map['createdAt']) : null,
-      updatedAt:
-          map['updatedAt'] != null ? DateTime.parse(map['updatedAt']) : null,
+  MedicalInfo({
+    this.conditions = const [],
+    this.medications = const [],
+    this.allergies = const [],
+  });
+
+  factory MedicalInfo.fromJson(Map<String, dynamic> json) =>
+      _$MedicalInfoFromJson(json);
+
+  Map<String, dynamic> toJson() => _$MedicalInfoToJson(this);
+
+  MedicalInfo copyWith({
+    List<String>? conditions,
+    List<String>? medications,
+    List<String>? allergies,
+  }) {
+    return MedicalInfo(
+      conditions: conditions ?? this.conditions,
+      medications: medications ?? this.medications,
+      allergies: allergies ?? this.allergies,
     );
   }
+}
 
-  Map<String, dynamic> toMap() {
-    return {
-      'id': id,
-      'name': name,
-      'age': age,
-      'gender': gender,
-      'occupation': occupation,
-      'country': country,
-      'personalityType': personalityType,
-      'relaxationTime': relaxationTime,
-      'selfcareFrequency': selfcareFrequency,
-      'relaxationTools': relaxationTools.join(','),
-      'hasPreviousMentalHealthAppExperience':
-          hasPreviousMentalHealthAppExperience == true ? 1 : 0,
-      'therapyChatHistoryPreference': therapyChatHistoryPreference,
-      'goals': goals.join(','),
-      'concerns': concerns.join(','),
-      'preferredActivities': preferredActivities.join(','),
-      'therapyGoals': therapyGoals.join(','),
-      'wellnessGoals': wellnessGoals.join(','),
-      'copingStrategies': copingStrategies.join(','),
-      'mindfulnessPractices': mindfulnessPractices.join(','),
-      'communicationStyle': communicationStyle,
-      'timezone': timezone,
-      'preferredSessionLength': preferredSessionLength,
-      'createdAt': createdAt?.toIso8601String(),
-      'updatedAt': updatedAt?.toIso8601String(),
-      'synced': 0,
-    };
+@JsonSerializable()
+class TherapyPreferences {
+  final String? communicationStyle;
+  final String? sessionFrequency;
+  final List<String> focusAreas;
+  final String? goals;
+
+  TherapyPreferences({
+    this.communicationStyle,
+    this.sessionFrequency,
+    this.focusAreas = const [],
+    this.goals,
+  });
+
+  factory TherapyPreferences.fromJson(Map<String, dynamic> json) =>
+      _$TherapyPreferencesFromJson(json);
+
+  Map<String, dynamic> toJson() => _$TherapyPreferencesToJson(this);
+
+  TherapyPreferences copyWith({
+    String? communicationStyle,
+    String? sessionFrequency,
+    List<String>? focusAreas,
+    String? goals,
+  }) {
+    return TherapyPreferences(
+      communicationStyle: communicationStyle ?? this.communicationStyle,
+      sessionFrequency: sessionFrequency ?? this.sessionFrequency,
+      focusAreas: focusAreas ?? this.focusAreas,
+      goals: goals ?? this.goals,
+    );
   }
+}
 
-  bool isComplete() {
-    return (goals.isNotEmpty ||
-            therapyGoals.isNotEmpty ||
-            wellnessGoals.isNotEmpty) &&
-        (concerns.isNotEmpty || preferredActivities.isNotEmpty);
-  }
+@JsonSerializable()
+class UserProfile {
+  final String id;
+  final String email;
+  final String? username;
+  final String? firstName;
+  final String? lastName;
+  final DateTime? dateOfBirth;
+  final String? phoneNumber;
+  final String? address;
+  final String? occupation;
+  final EmergencyContact? emergencyContact;
+  final MedicalInfo? medicalInfo;
+  final TherapyPreferences? therapyPreferences;
+  final Map<String, dynamic>? userProfileData;
+  final bool isProfileComplete;
+  final DateTime createdAt;
+  final DateTime updatedAt;
 
-  double getCompletenessScore() {
-    int totalFields = 7;
-    int completedFields = 0;
+  UserProfile({
+    required this.id,
+    required this.email,
+    this.username,
+    this.firstName,
+    this.lastName,
+    this.dateOfBirth,
+    this.phoneNumber,
+    this.address,
+    this.occupation,
+    this.emergencyContact,
+    this.medicalInfo,
+    this.therapyPreferences,
+    this.userProfileData,
+    required this.isProfileComplete,
+    required this.createdAt,
+    required this.updatedAt,
+  });
 
-    if (goals.isNotEmpty) completedFields++;
-    if (concerns.isNotEmpty) completedFields++;
-    if (preferredActivities.isNotEmpty) completedFields++;
-    if (therapyGoals.isNotEmpty) completedFields++;
-    if (wellnessGoals.isNotEmpty) completedFields++;
-    if (copingStrategies.isNotEmpty) completedFields++;
-    if (mindfulnessPractices.isNotEmpty) completedFields++;
+  factory UserProfile.fromJson(Map<String, dynamic> json) =>
+      _$UserProfileFromJson(json);
 
-    return completedFields / totalFields;
-  }
-
-  List<String> getAllGoals() {
-    return [...goals, ...therapyGoals, ...wellnessGoals];
-  }
+  Map<String, dynamic> toJson() => _$UserProfileToJson(this);
 
   UserProfile copyWith({
-    String? name,
-    int? age,
-    String? gender,
+    String? id,
+    String? email,
+    String? username,
+    String? firstName,
+    String? lastName,
+    DateTime? dateOfBirth,
+    String? phoneNumber,
+    String? address,
     String? occupation,
-    String? country,
-    String? personalityType,
-    String? relaxationTime,
-    String? selfcareFrequency,
-    List<String>? relaxationTools,
-    bool? hasPreviousMentalHealthAppExperience,
-    String? therapyChatHistoryPreference,
-    List<String>? goals,
-    List<String>? concerns,
-    List<String>? preferredActivities,
-    List<String>? therapyGoals,
-    List<String>? wellnessGoals,
-    List<String>? copingStrategies,
-    List<String>? mindfulnessPractices,
-    String? communicationStyle,
-    String? timezone,
-    int? preferredSessionLength,
-    List<Map<String, String>>? crisisContacts,
+    EmergencyContact? emergencyContact,
+    MedicalInfo? medicalInfo,
+    TherapyPreferences? therapyPreferences,
+    Map<String, dynamic>? userProfileData,
+    bool? isProfileComplete,
+    DateTime? createdAt,
+    DateTime? updatedAt,
   }) {
     return UserProfile(
-      id: id,
-      name: name ?? this.name,
-      age: age ?? this.age,
-      gender: gender ?? this.gender,
+      id: id ?? this.id,
+      email: email ?? this.email,
+      username: username ?? this.username,
+      firstName: firstName ?? this.firstName,
+      lastName: lastName ?? this.lastName,
+      dateOfBirth: dateOfBirth ?? this.dateOfBirth,
+      phoneNumber: phoneNumber ?? this.phoneNumber,
+      address: address ?? this.address,
       occupation: occupation ?? this.occupation,
-      country: country ?? this.country,
-      personalityType: personalityType ?? this.personalityType,
-      relaxationTime: relaxationTime ?? this.relaxationTime,
-      selfcareFrequency: selfcareFrequency ?? this.selfcareFrequency,
-      relaxationTools: relaxationTools ?? this.relaxationTools,
-      hasPreviousMentalHealthAppExperience:
-          hasPreviousMentalHealthAppExperience ??
-          this.hasPreviousMentalHealthAppExperience,
-      therapyChatHistoryPreference:
-          therapyChatHistoryPreference ?? this.therapyChatHistoryPreference,
-      goals: goals ?? this.goals,
-      concerns: concerns ?? this.concerns,
-      preferredActivities: preferredActivities ?? this.preferredActivities,
-      therapyGoals: therapyGoals ?? this.therapyGoals,
-      wellnessGoals: wellnessGoals ?? this.wellnessGoals,
-      copingStrategies: copingStrategies ?? this.copingStrategies,
-      mindfulnessPractices: mindfulnessPractices ?? this.mindfulnessPractices,
-      communicationStyle: communicationStyle ?? this.communicationStyle,
-      timezone: timezone ?? this.timezone,
-      preferredSessionLength:
-          preferredSessionLength ?? this.preferredSessionLength,
-      crisisContacts: crisisContacts ?? this.crisisContacts,
-      createdAt: createdAt,
-      updatedAt: DateTime.now(),
+      emergencyContact: emergencyContact ?? this.emergencyContact,
+      medicalInfo: medicalInfo ?? this.medicalInfo,
+      therapyPreferences: therapyPreferences ?? this.therapyPreferences,
+      userProfileData: userProfileData ?? this.userProfileData,
+      isProfileComplete: isProfileComplete ?? this.isProfileComplete,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
     );
   }
+
+  // Helper methods
+  String get displayName {
+    if (firstName != null && lastName != null) {
+      return '$firstName $lastName';
+    } else if (firstName != null) {
+      return firstName!;
+    } else if (username != null) {
+      return username!;
+    } else {
+      return email.split('@')[0];
+    }
+  }
+
+  bool get hasBasicInfo => firstName != null && lastName != null;
+  bool get hasContactInfo => phoneNumber != null;
+  bool get hasEmergencyContact => emergencyContact != null;
 }

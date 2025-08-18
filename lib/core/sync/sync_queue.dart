@@ -3,6 +3,7 @@
 /// This service manages a queue of sync operations that need to be
 /// processed when the device comes back online, with intelligent
 /// batching, retry logic, and dead letter queue for failed items.
+library;
 
 import 'dart:async';
 import 'dart:convert';

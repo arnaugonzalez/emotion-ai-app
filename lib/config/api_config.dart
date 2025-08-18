@@ -5,6 +5,7 @@
 /// based on launch configuration and device type.
 ///
 /// This is the ONLY configuration system - replaces environment_config.dart
+library;
 
 import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart' show kIsWeb;
@@ -233,7 +234,7 @@ class ApiConfig {
     print('  📊 Records: ${emotionalRecordsUrl()}');
     print('');
     print('🔧 Platform Info:');
-    print('  📱 Is Web: ${kIsWeb}');
+    print('  📱 Is Web: $kIsWeb');
     if (!kIsWeb) {
       try {
         print('  💻 Platform: ${Platform.operatingSystem}');

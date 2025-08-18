@@ -3,6 +3,7 @@
 /// This service handles conflicts that arise when the same data has been
 /// modified both locally and remotely, providing multiple resolution
 /// strategies and user-friendly conflict resolution interfaces.
+library;
 
 import 'dart:async';
 import 'package:logger/logger.dart';

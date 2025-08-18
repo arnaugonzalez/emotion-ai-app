@@ -2,6 +2,7 @@
 ///
 /// Provides intelligent failover for API calls, preventing cascading failures
 /// and providing automatic recovery when services become available again.
+library;
 
 import 'dart:async';
 import 'package:logger/logger.dart';
@@ -139,7 +140,7 @@ class CircuitBreaker<T> {
     _successCount = 0;
 
     logger.w(
-      '❌ Circuit breaker [$name] failure ${_failureCount}/${config.failureThreshold}: $error',
+      '❌ Circuit breaker [$name] failure $_failureCount/${config.failureThreshold}: $error',
     );
 
     if (_failureCount >= config.failureThreshold) {
@@ -147,7 +148,7 @@ class CircuitBreaker<T> {
       _nextRetryTime = DateTime.now().add(config.retryDelay);
 
       logger.e(
-        '⚡ Circuit breaker [$name] opened due to ${_failureCount} failures. '
+        '⚡ Circuit breaker [$name] opened due to $_failureCount failures. '
         'Next retry: ${_nextRetryTime!.toIso8601String()}',
       );
     }

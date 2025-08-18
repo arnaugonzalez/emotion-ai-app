@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
-import 'package:emotion_ai/shared/providers/user_limitations_provider.dart';
+import '../../../usage/providers/user_limitations_provider.dart';
 import 'package:logger/logger.dart';
 
 final logger = Logger();
@@ -160,6 +160,8 @@ class TokenUsageDisplay extends ConsumerWidget {
                                   context,
                                 ).colorScheme.onErrorContainer,
                       ),
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 3,
                     ),
                   ),
                 ],

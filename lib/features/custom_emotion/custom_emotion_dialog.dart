@@ -39,6 +39,8 @@ class _CustomEmotionDialogState extends State<CustomEmotionDialog> {
         widget.initialEmotion == null
             ? 'Add Custom Emotion'
             : 'Edit Custom Emotion',
+        overflow: TextOverflow.ellipsis,
+        maxLines: 2,
       ),
       content: Form(
         key: _formKey,

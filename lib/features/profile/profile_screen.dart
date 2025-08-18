@@ -5,6 +5,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:emotion_ai/features/auth/auth_provider.dart';
 import 'package:emotion_ai/features/auth/pin_code_screen.dart';
 import 'package:emotion_ai/core/theme/app_theme.dart';
+import 'package:emotion_ai/data/services/profile_service.dart';
+import 'package:emotion_ai/data/models/user_profile.dart';
 import '../terms/terms_dialog.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
@@ -24,12 +26,15 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   String? _selectedPersonalityType;
   String? _selectedRelaxationTime;
   String? _selectedSelfcareFrequency;
-  final List<String> _selectedRelaxationTools = [];
+  List<String> _selectedRelaxationTools = [];
   bool? _hasPreviousMentalHealthAppExperience;
   String? _selectedTherapyChatHistoryPreference;
   bool _isLoading = false;
   bool _hasAcceptedTerms = false;
   bool _hasPinCode = false;
+
+  // Profile service
+  final ProfileService _profileService = ProfileService();
 
   final List<String> _personalityTypes = [
     'INTJ',
@@ -91,6 +96,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   void initState() {
     super.initState();
     _loadPinStatus();
+    _loadExistingProfile();
   }
 
   Future<void> _loadPinStatus() async {
@@ -98,6 +104,123 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     setState(() {
       _hasPinCode = prefs.getString('user_pin_code') != null;
     });
+  }
+
+  Future<void> _loadExistingProfile() async {
+    try {
+      final profile = await _profileService.getUserProfile();
+      if (profile != null) {
+        setState(() {
+          _nameController.text = profile.firstName ?? '';
+          _ageController.text =
+              profile.dateOfBirth != null
+                  ? (DateTime.now().difference(profile.dateOfBirth!).inDays ~/
+                          365)
+                      .toString()
+                  : '';
+          _jobController.text = profile.occupation ?? '';
+          _countryController.text = ''; // Country not in current profile model
+
+          // Load additional preferences from user_profile_data if available
+          if (profile.userProfileData != null) {
+            final userData = profile.userProfileData!;
+            _selectedPersonalityType = userData['personality_type'];
+            _selectedRelaxationTime = userData['relaxation_time'];
+            _selectedSelfcareFrequency = userData['selfcare_frequency'];
+            _selectedRelaxationTools = List<String>.from(
+              userData['relaxation_tools'] ?? [],
+            );
+            _hasPreviousMentalHealthAppExperience =
+                userData['has_previous_mental_health_app_experience'];
+            _selectedTherapyChatHistoryPreference =
+                userData['therapy_chat_history_preference'];
+            _countryController.text = userData['country'] ?? '';
+            _selectedGender = userData['gender'];
+          }
+        });
+      }
+    } catch (e) {
+      // Profile not found or error loading - this is normal for new users
+      print('No existing profile found: $e');
+    }
+  }
+
+  Future<void> _saveProfile() async {
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      // Calculate date of birth from age
+      DateTime? dateOfBirth;
+      if (_ageController.text.isNotEmpty) {
+        final age = int.tryParse(_ageController.text);
+        if (age != null) {
+          dateOfBirth = DateTime.now().subtract(Duration(days: age * 365));
+        }
+      }
+
+      // Prepare profile data
+      final profileData = {
+        'first_name': _nameController.text,
+        'last_name': '', // Not collected in current form
+        'date_of_birth': dateOfBirth?.toIso8601String(),
+        'occupation': _jobController.text,
+        'phone_number': '', // Not collected in current form
+        'address': '', // Not collected in current form
+        'emergency_contact': null, // Not collected in current form
+        'medical_info': null, // Not collected in current form
+        'therapy_preferences': {
+          'communication_style': _selectedPersonalityType,
+          'session_frequency': _selectedSelfcareFrequency,
+          'focus_areas': _selectedRelaxationTools,
+          'goals': '', // Not collected in current form
+        },
+        // Store additional preferences in user_profile_data for future use
+        'user_profile_data': {
+          'personality_type': _selectedPersonalityType,
+          'relaxation_time': _selectedRelaxationTime,
+          'selfcare_frequency': _selectedSelfcareFrequency,
+          'relaxation_tools': _selectedRelaxationTools,
+          'has_previous_mental_health_app_experience':
+              _hasPreviousMentalHealthAppExperience,
+          'therapy_chat_history_preference':
+              _selectedTherapyChatHistoryPreference,
+          'country': _countryController.text,
+          'gender': _selectedGender,
+        },
+      };
+
+      await _profileService.createOrUpdateProfile(profileData);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Profile saved successfully!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error saving profile: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
   }
 
   Future<void> _setupPinCode() async {
@@ -304,19 +427,17 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                             ].map((String gender) {
                                               return DropdownMenuItem<String>(
                                                 value: gender,
-                                                child: Text(gender),
+                                                child: Text(
+                                                  gender,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                ),
                                               );
                                             }).toList(),
                                         onChanged: (String? newValue) {
                                           setState(() {
                                             _selectedGender = newValue;
                                           });
-                                        },
-                                        validator: (value) {
-                                          if (value == null || value.isEmpty) {
-                                            return 'Please select your gender';
-                                          }
-                                          return null;
                                         },
                                       ),
                                     ),
@@ -415,7 +536,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                             ) {
                                               return DropdownMenuItem<String>(
                                                 value: type,
-                                                child: Text(type),
+                                                child: Text(
+                                                  type,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                  maxLines: 1,
+                                                ),
                                               );
                                             }).toList(),
                                         onChanged: (String? newValue) {
@@ -850,8 +976,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                 height: 56,
                                 decoration: AppTheme.primaryGradientDecoration,
                                 child: ElevatedButton(
-                                  onPressed:
-                                      null, // TODO: Implement save functionality
+                                  onPressed: _isLoading ? null : _saveProfile,
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: Colors.transparent,
                                     shadowColor: Colors.transparent,

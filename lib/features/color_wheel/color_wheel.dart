@@ -108,6 +108,7 @@ class _ColorWheelScreenState extends ConsumerState<ColorWheelScreen> {
                 style: TextStyle(fontSize: 28),
                 textAlign: TextAlign.center,
                 softWrap: true,
+                overflow: TextOverflow.visible,
               ),
               const SizedBox(height: 20),
 
@@ -151,6 +152,10 @@ class _ColorWheelScreenState extends ConsumerState<ColorWheelScreen> {
                       icon: const Icon(Icons.add_circle),
                       tooltip: 'Add custom emotion',
                       onPressed: _addCustomEmotion,
+                      constraints: const BoxConstraints(
+                        minWidth: 40,
+                        minHeight: 40,
+                      ),
                     ),
                   ],
                 ),
@@ -171,24 +176,34 @@ class _ColorWheelScreenState extends ConsumerState<ColorWheelScreen> {
                     children:
                         standardEmotions.map((emotion) {
                           final isSelected = selectedEmotion == emotion;
-                          return ChoiceChip(
-                            label: Text(
-                              emotion.name.toUpperCase(),
-                              style: TextStyle(
-                                color: isSelected ? Colors.white : Colors.black,
+                          return ConstrainedBox(
+                            constraints: const BoxConstraints(
+                              maxWidth: 120,
+                              minHeight: 40,
+                            ),
+                            child: ChoiceChip(
+                              label: Text(
+                                emotion.name.toUpperCase(),
+                                style: TextStyle(
+                                  color:
+                                      isSelected ? Colors.white : Colors.black,
+                                  fontSize: 12,
+                                ),
+                                textAlign: TextAlign.center,
+                                overflow: TextOverflow.ellipsis,
+                                maxLines: 2,
                               ),
-                              overflow: TextOverflow.visible,
+                              selected: isSelected,
+                              selectedColor: emotion.color,
+                              backgroundColor: emotion.color.withValues(
+                                alpha: 0.8,
+                              ),
+                              onSelected: (_) {
+                                setState(() {
+                                  selectedEmotion = emotion;
+                                });
+                              },
                             ),
-                            selected: isSelected,
-                            selectedColor: emotion.color,
-                            backgroundColor: emotion.color.withValues(
-                              alpha: 0.8,
-                            ),
-                            onSelected: (_) {
-                              setState(() {
-                                selectedEmotion = emotion;
-                              });
-                            },
                           );
                         }).toList(),
                   ),
@@ -201,6 +216,7 @@ class _ColorWheelScreenState extends ConsumerState<ColorWheelScreen> {
                       'No custom emotions yet. Add one using the + button above.',
                       textAlign: TextAlign.center,
                       softWrap: true,
+                      overflow: TextOverflow.visible,
                     )
                     : Container(
                       constraints: BoxConstraints(
@@ -213,27 +229,36 @@ class _ColorWheelScreenState extends ConsumerState<ColorWheelScreen> {
                         children:
                             customEmotions.map((emotion) {
                               final isSelected = selectedEmotion == emotion;
-                              return ChoiceChip(
-                                label: Text(
-                                  emotion.name,
-                                  style: TextStyle(
-                                    color:
-                                        isSelected
-                                            ? Colors.white
-                                            : Colors.black,
-                                  ),
-                                  overflow: TextOverflow.visible,
+                              return ConstrainedBox(
+                                constraints: const BoxConstraints(
+                                  maxWidth: 120,
+                                  minHeight: 40,
                                 ),
-                                selected: isSelected,
-                                selectedColor: Color(emotion.color),
-                                backgroundColor: Color(
-                                  emotion.color,
-                                ).withValues(alpha: 0.8),
-                                onSelected: (_) {
-                                  setState(() {
-                                    selectedEmotion = emotion;
-                                  });
-                                },
+                                child: ChoiceChip(
+                                  label: Text(
+                                    emotion.name,
+                                    style: TextStyle(
+                                      color:
+                                          isSelected
+                                              ? Colors.white
+                                              : Colors.black,
+                                      fontSize: 12,
+                                    ),
+                                    textAlign: TextAlign.center,
+                                    overflow: TextOverflow.ellipsis,
+                                    maxLines: 2,
+                                  ),
+                                  selected: isSelected,
+                                  selectedColor: Color(emotion.color),
+                                  backgroundColor: Color(
+                                    emotion.color,
+                                  ).withValues(alpha: 0.8),
+                                  onSelected: (_) {
+                                    setState(() {
+                                      selectedEmotion = emotion;
+                                    });
+                                  },
+                                ),
                               );
                             }).toList(),
                       ),

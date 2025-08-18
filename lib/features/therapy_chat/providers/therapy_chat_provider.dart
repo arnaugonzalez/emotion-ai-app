@@ -1,7 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/chat_message.dart';
 import 'package:emotion_ai/features/auth/auth_provider.dart';
-import 'package:emotion_ai/shared/providers/user_limitations_provider.dart';
+import 'package:emotion_ai/features/usage/providers/user_limitations_provider.dart';
 import 'package:logger/logger.dart';
 
 final logger = Logger();
@@ -38,20 +38,32 @@ class TherapyChatNotifier extends StateNotifier<ChatState> {
   final Ref _ref;
 
   TherapyChatNotifier(this._ref) : super(ChatState()) {
+    logger.i('TherapyChatNotifier: Initializing...');
     _initializeChat();
   }
 
   Future<void> _initializeChat() async {
-    // Simply add initial greeting message
-    final initialMessages = [
-      ChatMessage(
-        text:
-            "Hello, I'm here to help you process your emotions and reflect on your well-being. How can I support you today?",
-        type: MessageType.therapist,
-      ),
-    ];
+    try {
+      logger.i('TherapyChatNotifier: Initializing chat...');
+      // Simply add initial greeting message
+      final initialMessages = [
+        ChatMessage(
+          text:
+              "Hello, I'm here to help you process your emotions and reflect on your well-being. How can I support you today?",
+          type: MessageType.therapist,
+        ),
+      ];
 
-    state = state.copyWith(messages: initialMessages);
+      logger.i(
+        'TherapyChatNotifier: Setting initial messages: ${initialMessages.length}',
+      );
+      state = state.copyWith(messages: initialMessages);
+      logger.i('TherapyChatNotifier: Initialization complete');
+    } catch (e) {
+      logger.e('TherapyChatNotifier: Error during initialization: $e');
+      // Set error state
+      state = state.copyWith(error: 'Failed to initialize chat: $e');
+    }
   }
 
   Future<void> sendMessage(String text) async {

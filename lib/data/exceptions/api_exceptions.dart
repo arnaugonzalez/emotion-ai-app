@@ -1,5 +1,5 @@
 /// Custom exceptions for API error handling
-library api_exceptions;
+library;
 
 /// Base class for all API exceptions
 abstract class ApiException implements Exception {
@@ -18,8 +18,8 @@ abstract class ApiException implements Exception {
 
 /// 400 Bad Request - Invalid data sent to API
 class BadRequestException extends ApiException {
-  const BadRequestException(String message, {Map<String, dynamic>? details})
-    : super(message, statusCode: 400, details: details);
+  const BadRequestException(super.message, {super.details})
+    : super(statusCode: 400);
 
   @override
   String get userMessage => 'Invalid data provided. Please check your input.';
@@ -27,8 +27,8 @@ class BadRequestException extends ApiException {
 
 /// 401 Unauthorized - Authentication required or failed
 class UnauthorizedException extends ApiException {
-  const UnauthorizedException(String message, {Map<String, dynamic>? details})
-    : super(message, statusCode: 401, details: details);
+  const UnauthorizedException(super.message, {super.details})
+    : super(statusCode: 401);
 
   @override
   String get userMessage => 'Authentication required. Please log in again.';
@@ -36,8 +36,8 @@ class UnauthorizedException extends ApiException {
 
 /// 403 Forbidden - User doesn't have permission
 class ForbiddenException extends ApiException {
-  const ForbiddenException(String message, {Map<String, dynamic>? details})
-    : super(message, statusCode: 403, details: details);
+  const ForbiddenException(super.message, {super.details})
+    : super(statusCode: 403);
 
   @override
   String get userMessage =>
@@ -46,8 +46,8 @@ class ForbiddenException extends ApiException {
 
 /// 404 Not Found - Resource doesn't exist
 class NotFoundException extends ApiException {
-  const NotFoundException(String message, {Map<String, dynamic>? details})
-    : super(message, statusCode: 404, details: details);
+  const NotFoundException(super.message, {super.details})
+    : super(statusCode: 404);
 
   @override
   String get userMessage => 'The requested resource was not found.';
@@ -55,8 +55,8 @@ class NotFoundException extends ApiException {
 
 /// 409 Conflict - Resource already exists or conflict with current state
 class ConflictException extends ApiException {
-  const ConflictException(String message, {Map<String, dynamic>? details})
-    : super(message, statusCode: 409, details: details);
+  const ConflictException(super.message, {super.details})
+    : super(statusCode: 409);
 
   @override
   String get userMessage =>
@@ -65,8 +65,8 @@ class ConflictException extends ApiException {
 
 /// 422 Unprocessable Entity - Validation errors
 class ValidationException extends ApiException {
-  const ValidationException(String message, {Map<String, dynamic>? details})
-    : super(message, statusCode: 422, details: details);
+  const ValidationException(super.message, {super.details})
+    : super(statusCode: 422);
 
   @override
   String get userMessage => 'Data validation failed. Please check your input.';
@@ -74,8 +74,8 @@ class ValidationException extends ApiException {
 
 /// 429 Too Many Requests - Rate limiting
 class RateLimitException extends ApiException {
-  const RateLimitException(String message, {Map<String, dynamic>? details})
-    : super(message, statusCode: 429, details: details);
+  const RateLimitException(super.message, {super.details})
+    : super(statusCode: 429);
 
   @override
   String get userMessage =>
@@ -84,11 +84,7 @@ class RateLimitException extends ApiException {
 
 /// 500+ Server Error - Internal server issues
 class ServerException extends ApiException {
-  const ServerException(
-    String message, {
-    int? statusCode,
-    Map<String, dynamic>? details,
-  }) : super(message, statusCode: statusCode, details: details);
+  const ServerException(super.message, {super.statusCode, super.details});
 
   @override
   String get userMessage => 'Server error occurred. Please try again later.';
@@ -96,7 +92,7 @@ class ServerException extends ApiException {
 
 /// Network connectivity issues
 class NetworkException extends ApiException {
-  const NetworkException(String message) : super(message, statusCode: null);
+  const NetworkException(super.message) : super(statusCode: null);
 
   @override
   String get userMessage =>
@@ -105,7 +101,7 @@ class NetworkException extends ApiException {
 
 /// Timeout exceptions
 class TimeoutException extends ApiException {
-  const TimeoutException(String message) : super(message, statusCode: null);
+  const TimeoutException(super.message) : super(statusCode: null);
 
   @override
   String get userMessage => 'Request timed out. Please try again.';
@@ -113,11 +109,7 @@ class TimeoutException extends ApiException {
 
 /// Unknown/unexpected errors
 class UnknownApiException extends ApiException {
-  const UnknownApiException(
-    String message, {
-    int? statusCode,
-    Map<String, dynamic>? details,
-  }) : super(message, statusCode: statusCode, details: details);
+  const UnknownApiException(super.message, {super.statusCode, super.details});
 
   @override
   String get userMessage => 'An unexpected error occurred. Please try again.';

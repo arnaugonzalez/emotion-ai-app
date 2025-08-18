@@ -2,6 +2,7 @@
 ///
 /// Provides an interface for users to resolve sync conflicts by choosing
 /// between local and remote versions, or merging them intelligently.
+library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';

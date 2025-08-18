@@ -2,6 +2,7 @@
 ///
 /// Provides consistent error handling across the app with intelligent
 /// retry strategies, user-friendly error messages, and automatic fallback.
+library;
 
 import 'dart:async';
 import 'dart:io';

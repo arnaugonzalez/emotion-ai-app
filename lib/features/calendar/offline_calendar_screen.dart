@@ -105,8 +105,11 @@ class _OfflineCalendarScreenState extends ConsumerState<OfflineCalendarScreen> {
       return [
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 1),
+          constraints: const BoxConstraints(maxWidth: 30, maxHeight: 20),
           child: Wrap(
-            spacing: 3,
+            spacing: 2,
+            runSpacing: 2,
+            alignment: WrapAlignment.center,
             children: [
               ...emotionalRecords.map((record) {
                 final color =
@@ -139,17 +142,21 @@ class _OfflineCalendarScreenState extends ConsumerState<OfflineCalendarScreen> {
     } else {
       return [
         Container(
-          padding: const EdgeInsets.all(2),
+          padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 1),
+          constraints: const BoxConstraints(maxWidth: 30, maxHeight: 20),
           decoration: BoxDecoration(
             color: Theme.of(context).primaryColor.withOpacity(0.2),
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(8),
           ),
           child: Text(
             '+$totalEvents',
             style: TextStyle(
-              fontSize: 10,
+              fontSize: 8,
               color: Theme.of(context).primaryColor,
+              fontWeight: FontWeight.bold,
             ),
+            textAlign: TextAlign.center,
+            overflow: TextOverflow.ellipsis,
           ),
         ),
       ];
@@ -314,51 +321,126 @@ class _OfflineCalendarScreenState extends ConsumerState<OfflineCalendarScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 8.0),
       child: Column(
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Padding(
-                padding: EdgeInsets.only(left: 8.0),
-                child: Text(
-                  'Calendar',
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                ),
-              ),
-              Row(
-                children: [
-                  if (calendarState.connectivityStatus !=
-                          ConnectivityStatus.online ||
-                      calendarState.isFromCache)
-                    ConnectivityWidget(
-                      status: calendarState.connectivityStatus,
-                      mode: ConnectivityWidgetMode.button,
-                      onRetry:
-                          () =>
-                              ref
-                                  .read(offlineCalendarProvider.notifier)
-                                  .retryFetch(),
-                      onForceSync:
-                          () =>
-                              ref
-                                  .read(offlineCalendarProvider.notifier)
-                                  .forceSyncAll(),
+          // Calendar header with responsive layout
+          LayoutBuilder(
+            builder: (context, constraints) {
+              if (constraints.maxWidth < 600) {
+                // Small screen: stack vertically
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Padding(
+                      padding: EdgeInsets.only(left: 8.0, bottom: 8.0),
+                      child: Text(
+                        'Calendar',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                     ),
-
-                  ElevatedButton.icon(
-                    onPressed: _isLoadingPresets ? null : _loadPresetData,
-                    icon:
-                        _isLoadingPresets
-                            ? const SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                            : const Icon(Icons.data_array),
-                    label: const Text('Load Test Data'),
-                  ),
-                ],
-              ),
-            ],
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [
+                        if (calendarState.connectivityStatus !=
+                                ConnectivityStatus.online ||
+                            calendarState.isFromCache)
+                          Flexible(
+                            child: ConnectivityWidget(
+                              status: calendarState.connectivityStatus,
+                              mode: ConnectivityWidgetMode.button,
+                              onRetry:
+                                  () =>
+                                      ref
+                                          .read(
+                                            offlineCalendarProvider.notifier,
+                                          )
+                                          .retryFetch(),
+                              onForceSync:
+                                  () =>
+                                      ref
+                                          .read(
+                                            offlineCalendarProvider.notifier,
+                                          )
+                                          .forceSyncAll(),
+                            ),
+                          ),
+                        Flexible(
+                          child: ElevatedButton.icon(
+                            onPressed:
+                                _isLoadingPresets ? null : _loadPresetData,
+                            icon:
+                                _isLoadingPresets
+                                    ? const SizedBox(
+                                      width: 20,
+                                      height: 20,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    )
+                                    : const Icon(Icons.data_array),
+                            label: const Text('Load Test Data'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                );
+              } else {
+                // Large screen: side by side
+                return Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Padding(
+                      padding: EdgeInsets.only(left: 8.0),
+                      child: Text(
+                        'Calendar',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    Row(
+                      children: [
+                        if (calendarState.connectivityStatus !=
+                                ConnectivityStatus.online ||
+                            calendarState.isFromCache)
+                          ConnectivityWidget(
+                            status: calendarState.connectivityStatus,
+                            mode: ConnectivityWidgetMode.button,
+                            onRetry:
+                                () =>
+                                    ref
+                                        .read(offlineCalendarProvider.notifier)
+                                        .retryFetch(),
+                            onForceSync:
+                                () =>
+                                    ref
+                                        .read(offlineCalendarProvider.notifier)
+                                        .forceSyncAll(),
+                          ),
+                        const SizedBox(width: 8),
+                        ElevatedButton.icon(
+                          onPressed: _isLoadingPresets ? null : _loadPresetData,
+                          icon:
+                              _isLoadingPresets
+                                  ? const SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                  : const Icon(Icons.data_array),
+                          label: const Text('Load Test Data'),
+                        ),
+                      ],
+                    ),
+                  ],
+                );
+              }
+            },
           ),
           const SizedBox(height: 8),
 

@@ -9,6 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/services.dart';
 import 'shared/services/secure_env_service.dart';
 import 'shared/providers/app_providers.dart';
+import 'core/theme/app_theme.dart';
 
 final logger = Logger();
 
@@ -101,10 +102,7 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
 
     return MaterialApp.router(
       title: 'E-motion AI',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
-        useMaterial3: true,
-      ),
+      theme: AppTheme.lightTheme,
       routerConfig: router,
       builder: (context, child) {
         return appInitAsync.when(

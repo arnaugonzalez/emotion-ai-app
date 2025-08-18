@@ -1,8 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:logger/logger.dart';
-import '../../data/models/user_limitations.dart';
-import '../../data/api_service.dart';
-import '../../features/auth/auth_provider.dart';
+import '../../../shared/providers/app_providers.dart';
+import '../../../data/models/user_limitations.dart';
+import '../../../data/api_service.dart';
 
 final logger = Logger();
 
@@ -51,29 +51,24 @@ class UserLimitationsNotifier extends StateNotifier<UserLimitationsState> {
     }
   }
 
-  // Helper method to check if user can make a request
   bool get canMakeRequest {
     return state.limitations?.canMakeRequest ?? false;
   }
 
-  // Helper method to get limit message
   String? get limitMessage {
     return state.limitations?.limitMessage;
   }
 }
 
-// Provider for UserLimitationsNotifier
 final userLimitationsProvider =
     StateNotifierProvider<UserLimitationsNotifier, UserLimitationsState>((ref) {
       return UserLimitationsNotifier(ref.watch(apiServiceProvider));
     });
 
-// Convenience provider for just the limitations data
 final limitationsDataProvider = Provider<UserLimitations?>((ref) {
   return ref.watch(userLimitationsProvider).limitations;
 });
 
-// Convenience provider for checking if user can make requests
 final canMakeRequestProvider = Provider<bool>((ref) {
   return ref.watch(userLimitationsProvider).limitations?.canMakeRequest ??
       false;
