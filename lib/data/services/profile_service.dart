@@ -31,15 +31,33 @@ class ProfileService {
         headers: await _getHeaders(),
       );
 
+      print('DEBUG: Profile API response status: ${response.statusCode}');
+      print('DEBUG: Profile API response body: ${response.body}');
+
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        return UserProfile.fromJson(data);
+        print('DEBUG: Parsed profile data: $data');
+
+        try {
+          final profile = UserProfile.fromJson(data);
+          print('DEBUG: Successfully created UserProfile object');
+          return profile;
+        } catch (parseError) {
+          print('DEBUG: Error parsing profile data: $parseError');
+          print('DEBUG: Data that failed to parse: $data');
+          throw Exception('Failed to parse profile data: $parseError');
+        }
       } else if (response.statusCode == 404) {
+        print('DEBUG: Profile not found (404)');
         return null; // Profile not found
       } else {
+        print(
+          'DEBUG: Profile API error: ${response.statusCode} - ${response.body}',
+        );
         throw Exception('Failed to get profile: ${response.statusCode}');
       }
     } catch (e) {
+      print('DEBUG: Exception in getUserProfile: $e');
       throw Exception('Error getting profile: $e');
     }
   }
@@ -108,7 +126,7 @@ class ProfileService {
     }
   }
 
-  /// Update therapy context
+  /// Update therapy context and AI insights
   Future<TherapyContext> updateTherapyContext(
     Map<String, dynamic> contextData,
   ) async {
@@ -132,7 +150,7 @@ class ProfileService {
     }
   }
 
-  /// Clear therapy context
+  /// Clear therapy context and AI insights
   Future<bool> clearTherapyContext() async {
     try {
       final response = await http.delete(
@@ -140,56 +158,56 @@ class ProfileService {
         headers: await _getHeaders(),
       );
 
-      if (response.statusCode == 200) {
-        return true;
-      } else {
-        throw Exception(
-          'Failed to clear therapy context: ${response.statusCode}',
-        );
-      }
+      return response.statusCode == 200;
     } catch (e) {
       throw Exception('Error clearing therapy context: $e');
     }
   }
 
-  /// Generate new AI insights
-  Future<Map<String, dynamic>?> generateAIInsights() async {
+  /// Get AI agent personality settings and context
+  Future<Map<String, dynamic>?> getAgentPersonality() async {
     try {
-      final response = await http.post(
-        Uri.parse('${ApiConfig.baseUrl}/profile/generate-insights'),
+      final response = await http.get(
+        Uri.parse('${ApiConfig.baseUrl}/profile/agent-personality'),
         headers: await _getHeaders(),
       );
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        return data['insights'] as Map<String, dynamic>?;
+        return data;
+      } else if (response.statusCode == 404) {
+        return null; // No agent personality data found
       } else {
         throw Exception(
-          'Failed to generate AI insights: ${response.statusCode}',
+          'Failed to get agent personality: ${response.statusCode}',
         );
       }
     } catch (e) {
-      throw Exception('Error generating AI insights: $e');
+      throw Exception('Error getting agent personality: $e');
     }
   }
 
-  /// Check if user has profile
-  Future<bool> hasProfile() async {
+  /// Update AI agent personality settings and context
+  Future<Map<String, dynamic>> updateAgentPersonality(
+    Map<String, dynamic> personalityData,
+  ) async {
     try {
-      final status = await getProfileStatus();
-      return status.hasProfile;
-    } catch (e) {
-      return false;
-    }
-  }
+      final response = await http.put(
+        Uri.parse('${ApiConfig.baseUrl}/profile/agent-personality'),
+        headers: await _getHeaders(),
+        body: json.encode(personalityData),
+      );
 
-  /// Get profile completeness percentage
-  Future<double> getProfileCompleteness() async {
-    try {
-      final status = await getProfileStatus();
-      return status.profileCompleteness;
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        return data;
+      } else {
+        throw Exception(
+          'Failed to update agent personality: ${response.statusCode}',
+        );
+      }
     } catch (e) {
-      return 0.0;
+      throw Exception('Error updating agent personality: $e');
     }
   }
 }

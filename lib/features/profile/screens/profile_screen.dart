@@ -44,9 +44,15 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
       // Load profile data
       _profile = await profileNotifier.getUserProfile();
+      print('DEBUG: Profile loaded: $_profile'); // Debug log
       _therapyContext = await therapyContextNotifier.getTherapyContext();
       _profileStatus = await profileStatusNotifier.getProfileStatus();
+
+      print(
+        'DEBUG: Profile data loaded - Profile: ${_profile != null}, TherapyContext: ${_therapyContext != null}, Status: ${_profileStatus != null}',
+      );
     } catch (e) {
+      print('DEBUG: Error loading profile data: $e'); // Debug log
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

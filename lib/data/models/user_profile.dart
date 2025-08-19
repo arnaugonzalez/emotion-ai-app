@@ -138,10 +138,66 @@ class UserProfile {
     required this.updatedAt,
   });
 
-  factory UserProfile.fromJson(Map<String, dynamic> json) =>
-      _$UserProfileFromJson(json);
+  factory UserProfile.fromJson(Map<String, dynamic> json) {
+    // Handle field name mapping from backend (snake_case) to Flutter (camelCase)
+    return UserProfile(
+      id: json['id'] as String,
+      email: json['email'] as String,
+      username: json['username'] as String?,
+      firstName: json['first_name'] as String?,
+      lastName: json['last_name'] as String?,
+      dateOfBirth:
+          json['date_of_birth'] != null
+              ? DateTime.parse(json['date_of_birth'] as String)
+              : null,
+      phoneNumber: json['phone_number'] as String?,
+      address: json['address'] as String?,
+      occupation: json['occupation'] as String?,
+      emergencyContact:
+          json['emergency_contact'] != null
+              ? EmergencyContact.fromJson(
+                json['emergency_contact'] as Map<String, dynamic>,
+              )
+              : null,
+      medicalInfo:
+          json['medical_info'] != null
+              ? MedicalInfo.fromJson(
+                json['medical_info'] as Map<String, dynamic>,
+              )
+              : null,
+      therapyPreferences:
+          json['therapy_preferences'] != null
+              ? TherapyPreferences.fromJson(
+                json['therapy_preferences'] as Map<String, dynamic>,
+              )
+              : null,
+      userProfileData: json['user_profile_data'] as Map<String, dynamic>?,
+      isProfileComplete: (json['is_profile_complete'] as bool?) ?? false,
+      createdAt: DateTime.parse(json['created_at'] as String),
+      updatedAt: DateTime.parse(json['updated_at'] as String),
+    );
+  }
 
-  Map<String, dynamic> toJson() => _$UserProfileToJson(this);
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'email': email,
+      'username': username,
+      'first_name': firstName,
+      'last_name': lastName,
+      'date_of_birth': dateOfBirth?.toIso8601String(),
+      'phone_number': phoneNumber,
+      'address': address,
+      'occupation': occupation,
+      'emergency_contact': emergencyContact?.toJson(),
+      'medical_info': medicalInfo?.toJson(),
+      'therapy_preferences': therapyPreferences?.toJson(),
+      'user_profile_data': userProfileData,
+      'is_profile_complete': isProfileComplete,
+      'created_at': createdAt.toIso8601String(),
+      'updated_at': updatedAt.toIso8601String(),
+    };
+  }
 
   UserProfile copyWith({
     String? id,
