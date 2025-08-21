@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:emotion_ai/utils/color_utils.dart';
 import './events/offline_calendar_provider.dart';
 
 import 'package:table_calendar/table_calendar.dart';
@@ -116,23 +117,17 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
           child: Wrap(
             spacing: 3,
             children: [
-              ...emotionalRecords.map(
-                (record) => Container(
+              ...emotionalRecords.map((record) {
+                final raw = record.customEmotionColor ?? record.color;
+                return Container(
                   width: 6,
                   height: 6,
                   decoration: BoxDecoration(
-                    color:
-                        record.customEmotionColor != null
-                            ? Color(
-                              record.customEmotionColor! | 0xFF000000,
-                            ) // Ensure alpha channel
-                            : Color(
-                              int.parse(record.color, radix: 16) | 0xFF000000,
-                            ), // Ensure alpha channel
+                    color: ColorHelper.fromDatabaseColor(raw),
                     shape: BoxShape.circle,
                   ),
-                ),
-              ),
+                );
+              }),
               ...breathingSessions.map(
                 (_) => Container(
                   width: 6,
@@ -269,10 +264,9 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
           margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           child: ListTile(
             leading: CircleAvatar(
-              backgroundColor:
-                  record.customEmotionColor != null
-                      ? Color(record.customEmotionColor!)
-                      : Color(int.parse(record.color, radix: 16)),
+              backgroundColor: ColorHelper.fromDatabaseColor(
+                record.customEmotionColor ?? record.color,
+              ),
               radius: 16,
             ),
             title: Text(

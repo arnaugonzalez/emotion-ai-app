@@ -4,6 +4,7 @@ import './events/offline_calendar_provider.dart';
 import '../../shared/widgets/connectivity_widget.dart';
 import '../../shared/services/offline_data_service.dart';
 import 'package:table_calendar/table_calendar.dart';
+import 'package:emotion_ai/utils/color_utils.dart';
 import 'package:logger/logger.dart';
 
 final logger = Logger();
@@ -112,15 +113,12 @@ class _OfflineCalendarScreenState extends ConsumerState<OfflineCalendarScreen> {
             alignment: WrapAlignment.center,
             children: [
               ...emotionalRecords.map((record) {
-                final color =
-                    record.customEmotionColor != null
-                        ? Color(record.customEmotionColor!)
-                        : Color(record.color);
+                final raw = record.customEmotionColor ?? record.color;
                 return Container(
                   width: 6,
                   height: 6,
                   decoration: BoxDecoration(
-                    color: color,
+                    color: ColorHelper.fromDatabaseColor(raw),
                     shape: BoxShape.circle,
                   ),
                 );
@@ -210,10 +208,9 @@ class _OfflineCalendarScreenState extends ConsumerState<OfflineCalendarScreen> {
           margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           child: ListTile(
             leading: CircleAvatar(
-              backgroundColor:
-                  record.customEmotionColor != null
-                      ? Color(record.customEmotionColor!)
-                      : Color(record.color),
+              backgroundColor: ColorHelper.fromDatabaseColor(
+                record.customEmotionColor ?? record.color,
+              ),
               radius: 16,
             ),
             title: Text(

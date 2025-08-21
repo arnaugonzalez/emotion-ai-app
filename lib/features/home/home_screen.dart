@@ -10,6 +10,7 @@ import 'package:emotion_ai/core/theme/app_theme.dart';
 import 'package:emotion_ai/shared/widgets/gradient_app_bar.dart';
 import 'package:emotion_ai/shared/widgets/themed_card.dart';
 import 'package:emotion_ai/shared/widgets/primary_gradient_button.dart';
+import 'package:emotion_ai/utils/color_utils.dart';
 
 // --- State Providers ---
 
@@ -440,14 +441,34 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                 child: DropdownButtonFormField<CustomEmotion>(
                                   value: dropdownValue,
                                   items:
-                                      customEmotions
-                                          .map(
-                                            (e) => DropdownMenuItem(
-                                              value: e,
-                                              child: Text(e.name),
-                                            ),
-                                          )
-                                          .toList(),
+                                      customEmotions.map((e) {
+                                        final color =
+                                            ColorHelper.fromDatabaseColor(
+                                              e.color,
+                                            );
+                                        return DropdownMenuItem(
+                                          value: e,
+                                          child: Row(
+                                            children: [
+                                              Container(
+                                                width: 16,
+                                                height: 16,
+                                                margin: const EdgeInsets.only(
+                                                  right: 8,
+                                                ),
+                                                decoration: BoxDecoration(
+                                                  color: color,
+                                                  shape: BoxShape.circle,
+                                                  border: Border.all(
+                                                    color: Colors.black12,
+                                                  ),
+                                                ),
+                                              ),
+                                              Text(e.name),
+                                            ],
+                                          ),
+                                        );
+                                      }).toList(),
                                   onChanged: (value) {
                                     if (value != null) {
                                       ref.read(emotionProvider.notifier).state =
@@ -485,17 +506,36 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                             child: DropdownButtonFormField<String>(
                               value:
                                   selectedEmotion is String
-                                      ? selectedEmotion as String
+                                      ? selectedEmotion
                                       : standardEmotions.first.name,
                               items:
-                                  standardEmotions
-                                      .map(
-                                        (e) => DropdownMenuItem(
-                                          value: e.name,
-                                          child: Text(e.name),
-                                        ),
-                                      )
-                                      .toList(),
+                                  standardEmotions.map((e) {
+                                    final color = ColorHelper.fromDatabaseColor(
+                                      e.color.value,
+                                    );
+                                    return DropdownMenuItem(
+                                      value: e.name,
+                                      child: Row(
+                                        children: [
+                                          Container(
+                                            width: 16,
+                                            height: 16,
+                                            margin: const EdgeInsets.only(
+                                              right: 8,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: color,
+                                              shape: BoxShape.circle,
+                                              border: Border.all(
+                                                color: Colors.black12,
+                                              ),
+                                            ),
+                                          ),
+                                          Text(e.name),
+                                        ],
+                                      ),
+                                    );
+                                  }).toList(),
                               onChanged: (value) {
                                 if (value != null) {
                                   ref.read(emotionProvider.notifier).state =
