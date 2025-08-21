@@ -174,6 +174,10 @@ class ApiConfig {
   // Test endpoints
   static const String _testConnection = '/test/phone';
 
+  // Dev seed endpoints (dev-only on backend)
+  static const String _devSeedLoadPresetData = '/dev/seed/load_preset_data';
+  static const String _devSeedReset = '/dev/seed/reset';
+
   // Full URL builders
   static String healthUrl() => '$baseUrl$_health/';
   static String healthDetailedUrl() => '$baseUrl$_healthDetailed';
@@ -190,6 +194,8 @@ class ApiConfig {
   static String breathingPatternsUrl() => '$baseUrl$_breathingPatterns/';
 
   static String testConnectionUrl() => '$baseUrl$_testConnection';
+  static String devSeedLoadPresetDataUrl() => '$baseUrl$_devSeedLoadPresetData';
+  static String devSeedResetUrl() => '$baseUrl$_devSeedReset';
 
   // HTTP Headers
   static Map<String, String> get defaultHeaders => {

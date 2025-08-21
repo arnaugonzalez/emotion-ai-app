@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:emotion_ai/data/models/breathing_session.dart';
 import 'package:emotion_ai/data/models/emotional_record.dart';
 import 'package:emotion_ai/shared/services/offline_data_service.dart';
+import 'package:emotion_ai/data/api_service.dart';
 import 'package:emotion_ai/shared/services/sqlite_helper.dart';
 import 'package:emotion_ai/shared/services/data_presets.dart';
 import 'package:logger/logger.dart';
@@ -190,6 +191,20 @@ class OfflineCalendarNotifier extends StateNotifier<CalendarState> {
     try {
       final sqliteHelper = SQLiteHelper();
       final presetService = DataPresetService(sqliteHelper);
+
+      // In development, prefer backend dev seed. Fallback to local presets.
+      try {
+        final api = ApiService();
+        await api.devSeedLoadPresetData();
+        // After backend seed, force sync from remote to pull fresh data
+        await fetchEvents(preferredSource: DataSource.remote);
+        logger.i('Backend dev seed loaded successfully');
+        return;
+      } catch (e) {
+        logger.w(
+          'Backend dev seed failed or unavailable, using local presets: $e',
+        );
+      }
 
       await presetService.loadAllPresetData();
       logger.i('Preset data loaded successfully');

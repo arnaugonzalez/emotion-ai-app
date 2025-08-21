@@ -2,8 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import './events/offline_calendar_provider.dart';
 
-import '../../shared/services/data_presets.dart';
-import '../../shared/services/sqlite_helper.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:logger/logger.dart';
 import 'package:emotion_ai/core/theme/app_theme.dart';
@@ -45,14 +43,9 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
     });
 
     try {
-      final sqliteHelper = SQLiteHelper();
-      final presetService = DataPresetService(sqliteHelper);
-
-      await presetService.loadAllPresetData();
+      // Use provider method which prefers backend dev seed and falls back to local
+      await ref.read(offlineCalendarProvider.notifier).addPresetData();
       if (!mounted) return;
-
-      // Refresh calendar events
-      ref.read(offlineCalendarProvider.notifier).fetchEvents();
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

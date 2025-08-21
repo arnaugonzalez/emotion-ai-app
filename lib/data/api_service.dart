@@ -473,4 +473,21 @@ class ApiService {
       return false;
     }
   }
+
+  // Dev seed endpoints
+  Future<Map<String, dynamic>> devSeedLoadPresetData() async {
+    final response = await http.post(
+      Uri.parse(ApiConfig.devSeedLoadPresetDataUrl()),
+      headers: await _getHeaders(),
+    );
+    return _handleResponse(response, (data) => data);
+  }
+
+  Future<Map<String, dynamic>> devSeedReset() async {
+    final response = await http.post(
+      Uri.parse(ApiConfig.devSeedResetUrl()),
+      headers: await _getHeaders(),
+    );
+    return _handleResponse(response, (data) => data);
+  }
 }
