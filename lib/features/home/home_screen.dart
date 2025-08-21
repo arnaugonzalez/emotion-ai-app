@@ -315,13 +315,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
-                                'Share how you feel today',
-                                style: Theme.of(
-                                  context,
-                                ).textTheme.headlineMedium?.copyWith(
-                                  color: AppTheme.primaryViolet,
-                                  fontWeight: FontWeight.bold,
+                              FittedBox(
+                                fit: BoxFit.scaleDown,
+                                alignment: Alignment.centerLeft,
+                                child: Text(
+                                  'Share how you feel today',
+                                  style: Theme.of(
+                                    context,
+                                  ).textTheme.headlineMedium?.copyWith(
+                                    color: AppTheme.primaryViolet,
+                                    fontWeight: FontWeight.bold,
+                                  ),
                                 ),
                               ),
                               const SizedBox(height: 12),
@@ -335,6 +339,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                     horizontal: 16,
                                     vertical: 12,
                                   ),
+                                  floatingLabelBehavior:
+                                      FloatingLabelBehavior.auto,
                                 ),
                                 initialValue: ref.watch(inputProvider),
                                 onChanged:
@@ -346,6 +352,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                 textCapitalization:
                                     TextCapitalization.sentences,
                                 style: const TextStyle(fontSize: 16),
+                                textInputAction: TextInputAction.newline,
                               ),
                             ],
                           ),

@@ -37,12 +37,18 @@ class GradientAppBar extends StatelessWidget implements PreferredSizeWidget {
           else
             const SizedBox(width: 40),
           Expanded(
-            child: Text(
-              title,
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                color: AppTheme.onPrimary,
-                fontWeight: FontWeight.bold,
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.center,
+              child: Text(
+                title,
+                textAlign: TextAlign.center,
+                softWrap: false,
+                overflow: TextOverflow.visible,
+                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                  color: AppTheme.onPrimary,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
           ),
