@@ -9,6 +9,7 @@ import '../../core/theme/app_theme.dart';
 import '../../shared/widgets/gradient_app_bar.dart';
 import '../../shared/widgets/themed_card.dart';
 import 'package:characters/characters.dart';
+import 'package:visibility_detector/visibility_detector.dart';
 
 final breathingRepositoryProvider = Provider<BreathingRepository>((ref) {
   return BreathingRepository(ref.watch(apiServiceProvider));
@@ -259,8 +260,9 @@ class _BreathingPatternCard extends StatelessWidget {
                             text: cappedTitle,
                             style: titleStyle,
                             gap: 32,
-                            scrollDuration: const Duration(milliseconds: 8000),
-                            pauseDuration: const Duration(milliseconds: 1200),
+                            scrollDuration: const Duration(milliseconds: 20000),
+                            pauseDuration: const Duration(milliseconds: 1000),
+                            maxLoops: 5,
                           ),
                         );
                       },
@@ -321,6 +323,7 @@ class MarqueeText extends StatefulWidget {
   final Duration scrollDuration;
   final Duration pauseDuration;
   final double gap;
+  final int maxLoops;
 
   const MarqueeText({
     super.key,
@@ -329,6 +332,7 @@ class MarqueeText extends StatefulWidget {
     this.scrollDuration = const Duration(milliseconds: 10000),
     this.pauseDuration = const Duration(milliseconds: 1000),
     this.gap = 24,
+    this.maxLoops = 5,
   });
 
   @override
@@ -340,108 +344,176 @@ class _MarqueeTextState extends State<MarqueeText>
   late final AnimationController _controller;
   double _textWidth = 0;
   double _maxWidth = 0;
+  bool _isVisible = false;
+  int _completedLoops = 0;
+  Duration? _appliedDuration;
+  late final Key _visibilityKey;
 
   @override
   void initState() {
     super.initState();
     _controller = AnimationController(vsync: this);
+    _controller.addStatusListener(_handleStatus);
+    _visibilityKey = UniqueKey();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // When the route becomes active again, restart marquee fresh
+    _completedLoops = 0;
+    if (mounted) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _updateAnimation());
+    }
   }
 
   @override
   void dispose() {
+    _controller.removeStatusListener(_handleStatus);
     _controller.dispose();
     super.dispose();
   }
 
+  void _handleStatus(AnimationStatus status) async {
+    if (status == AnimationStatus.completed) {
+      _completedLoops += 1;
+      if (_completedLoops >= widget.maxLoops || !_isVisible) {
+        _controller.stop();
+        return;
+      }
+      await Future.delayed(widget.pauseDuration);
+      if (!mounted) return;
+      if (_isVisible) {
+        _controller.forward(from: 0);
+      }
+    }
+  }
+
   void _updateAnimation() {
+    if (!mounted) return;
     if (_textWidth <= 0 || _maxWidth <= 0) return;
     final bool overflow = _textWidth > _maxWidth;
     if (!overflow) {
       _controller.stop();
       return;
     }
-    // Configure a continuous scroll based on total travel distance
+    final bool routeIsCurrent =
+        mounted ? (ModalRoute.of(context)?.isCurrent ?? true) : false;
+    if (!routeIsCurrent) {
+      _controller.stop();
+      _isVisible = false;
+      _completedLoops = 0;
+      return;
+    }
+    if (!_isVisible || _completedLoops >= widget.maxLoops) {
+      _controller.stop();
+      return;
+    }
+    // Slow speed by using a constant pixels-per-second
     final double travel = _textWidth + widget.gap;
-    final int baseMs = widget.scrollDuration.inMilliseconds;
-    // Adjust duration proportionally to the travel distance to keep speed reasonable
+    const double pixelsPerSecond = 30; // slow
     final int durationMs =
-        (baseMs * (travel / 150.0)).clamp(3000, 20000).toInt();
-    _controller.duration = Duration(milliseconds: durationMs);
-    _controller.repeat();
+        (travel / pixelsPerSecond * 1000).clamp(4000, 40000).toInt();
+    final Duration desired = Duration(milliseconds: durationMs);
+    if (_appliedDuration != desired) {
+      _controller.duration = desired;
+      _appliedDuration = desired;
+    }
+    if (!_controller.isAnimating) {
+      _controller.forward(from: 0);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        _maxWidth = constraints.maxWidth;
-
-        // Measure text width
-        final textPainter = TextPainter(
-          text: TextSpan(text: widget.text, style: widget.style),
-          maxLines: 1,
-          textDirection: TextDirection.ltr,
-        )..layout(minWidth: 0, maxWidth: double.infinity);
-        _textWidth = textPainter.width;
-
-        WidgetsBinding.instance.addPostFrameCallback((_) => _updateAnimation());
-
-        final bool overflow = _textWidth > _maxWidth;
-
-        if (!overflow) {
-          return Text(
-            widget.text,
-            style: widget.style,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          );
+    return VisibilityDetector(
+      key: _visibilityKey,
+      onVisibilityChanged: (info) {
+        final bool nowVisible = info.visibleFraction > 0.1;
+        if (nowVisible && !_isVisible) {
+          _completedLoops = 0; // reset per visible session
         }
-
-        return ClipRect(
-          child: AnimatedBuilder(
-            animation: _controller,
-            builder: (context, child) {
-              final double travel = _textWidth + widget.gap;
-              final double t =
-                  (_controller.duration == null ||
-                          _controller.duration!.inMilliseconds == 0)
-                      ? 0
-                      : _controller.value;
-              final double offset = -t * travel;
-              return Transform.translate(
-                offset: Offset(offset, 0),
-                child: child,
-              );
-            },
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                ConstrainedBox(
-                  constraints: BoxConstraints(maxWidth: _textWidth),
-                  child: Text(
-                    widget.text,
-                    style: widget.style,
-                    maxLines: 1,
-                    overflow: TextOverflow.visible,
-                    softWrap: false,
-                  ),
-                ),
-                SizedBox(width: widget.gap),
-                ConstrainedBox(
-                  constraints: BoxConstraints(maxWidth: _textWidth),
-                  child: Text(
-                    widget.text,
-                    style: widget.style,
-                    maxLines: 1,
-                    overflow: TextOverflow.visible,
-                    softWrap: false,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
+        _isVisible = nowVisible;
+        if (_isVisible) {
+          _updateAnimation();
+        } else {
+          _controller.stop();
+        }
       },
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          _maxWidth = constraints.maxWidth;
+
+          // Measure text width
+          final textPainter = TextPainter(
+            text: TextSpan(text: widget.text, style: widget.style),
+            maxLines: 1,
+            textDirection: TextDirection.ltr,
+          )..layout(minWidth: 0, maxWidth: double.infinity);
+          _textWidth = textPainter.width;
+
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) _updateAnimation();
+          });
+
+          final bool overflow = _textWidth > _maxWidth;
+
+          if (!overflow) {
+            return Text(
+              widget.text,
+              style: widget.style,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            );
+          }
+
+          return ClipRect(
+            child: AnimatedBuilder(
+              animation: _controller,
+              builder: (context, child) {
+                final double travel = _textWidth + widget.gap;
+                final double t = _controller.value;
+                final double offset = -t * travel;
+                return Transform.translate(
+                  offset: Offset(offset, 0),
+                  child: child,
+                );
+              },
+              child: OverflowBox(
+                alignment: Alignment.centerLeft,
+                minWidth: 0,
+                maxWidth: double.infinity,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    ConstrainedBox(
+                      constraints: BoxConstraints(maxWidth: _textWidth),
+                      child: Text(
+                        widget.text,
+                        style: widget.style,
+                        maxLines: 1,
+                        overflow: TextOverflow.visible,
+                        softWrap: false,
+                      ),
+                    ),
+                    SizedBox(width: widget.gap),
+                    ConstrainedBox(
+                      constraints: BoxConstraints(maxWidth: _textWidth),
+                      child: Text(
+                        widget.text,
+                        style: widget.style,
+                        maxLines: 1,
+                        overflow: TextOverflow.visible,
+                        softWrap: false,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
+      ),
     );
   }
 }
