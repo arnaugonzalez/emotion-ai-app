@@ -30,31 +30,31 @@ class BreathingMenuScreen extends ConsumerWidget {
     final patternsAsync = ref.watch(breathingPatternsProvider);
 
     return Scaffold(
+      floatingActionButton: FloatingActionButton(
+        heroTag: 'addPatternFab',
+        onPressed: () async {
+          final newPattern = await showDialog<BreathingPattern>(
+            context: context,
+            builder: (context) => const CreatePatternDialog(),
+          );
+          if (newPattern != null) {
+            final repo = ref.read(breathingRepositoryProvider);
+            await repo.createPattern(newPattern);
+            ref.invalidate(breathingPatternsProvider);
+          }
+        },
+        backgroundColor: AppTheme.primaryViolet,
+        foregroundColor: Colors.white,
+        tooltip: 'Add pattern',
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        child: const Icon(Icons.add),
+      ),
       body: Container(
         decoration: AppTheme.backgroundDecoration,
         child: SafeArea(
           child: Column(
             children: [
-              GradientAppBar(
-                title: 'Breathing Menu',
-                actions: [
-                  IconButton(
-                    icon: const Icon(Icons.add_circle_outline),
-                    tooltip: 'Add new pattern',
-                    onPressed: () async {
-                      final newPattern = await showDialog<BreathingPattern>(
-                        context: context,
-                        builder: (context) => const CreatePatternDialog(),
-                      );
-                      if (newPattern != null) {
-                        final repo = ref.read(breathingRepositoryProvider);
-                        await repo.createPattern(newPattern);
-                        ref.invalidate(breathingPatternsProvider);
-                      }
-                    },
-                  ),
-                ],
-              ),
+              GradientAppBar(title: 'Breathing Menu', actions: const []),
               Expanded(
                 child: patternsAsync.when(
                   loading:

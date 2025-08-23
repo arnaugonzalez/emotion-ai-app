@@ -92,9 +92,15 @@ class _CreatePatternDialogState extends State<CreatePatternDialog> {
                           labelText: 'Pattern Name',
                           hintText: 'e.g., Custom Relaxation',
                         ),
+                        inputFormatters: [
+                          LengthLimitingTextInputFormatter(30),
+                        ],
                         validator: (value) {
                           if (value == null || value.isEmpty) {
                             return 'Please enter a name';
+                          }
+                          if (value.length > 30) {
+                            return 'Max 30 characters';
                           }
                           return null;
                         },
@@ -111,13 +117,14 @@ class _CreatePatternDialogState extends State<CreatePatternDialog> {
                               keyboardType: TextInputType.number,
                               inputFormatters: [
                                 FilteringTextInputFormatter.digitsOnly,
+                                LengthLimitingTextInputFormatter(2),
                               ],
                               validator: (value) {
                                 if (value == null || value.isEmpty) {
                                   return 'Required';
                                 }
                                 final num = int.tryParse(value);
-                                if (num == null || num <= 0) {
+                                if (num == null || num <= 0 || num > 99) {
                                   return 'Invalid';
                                 }
                                 return null;
@@ -134,13 +141,14 @@ class _CreatePatternDialogState extends State<CreatePatternDialog> {
                               keyboardType: TextInputType.number,
                               inputFormatters: [
                                 FilteringTextInputFormatter.digitsOnly,
+                                LengthLimitingTextInputFormatter(2),
                               ],
                               validator: (value) {
                                 if (value == null || value.isEmpty) {
                                   return 'Required';
                                 }
                                 final num = int.tryParse(value);
-                                if (num == null || num < 0) {
+                                if (num == null || num < 0 || num > 99) {
                                   return 'Invalid';
                                 }
                                 return null;
@@ -157,13 +165,14 @@ class _CreatePatternDialogState extends State<CreatePatternDialog> {
                               keyboardType: TextInputType.number,
                               inputFormatters: [
                                 FilteringTextInputFormatter.digitsOnly,
+                                LengthLimitingTextInputFormatter(2),
                               ],
                               validator: (value) {
                                 if (value == null || value.isEmpty) {
                                   return 'Required';
                                 }
                                 final num = int.tryParse(value);
-                                if (num == null || num <= 0) {
+                                if (num == null || num <= 0 || num > 99) {
                                   return 'Invalid';
                                 }
                                 return null;
@@ -185,13 +194,14 @@ class _CreatePatternDialogState extends State<CreatePatternDialog> {
                               keyboardType: TextInputType.number,
                               inputFormatters: [
                                 FilteringTextInputFormatter.digitsOnly,
+                                LengthLimitingTextInputFormatter(2),
                               ],
                               validator: (value) {
                                 if (value == null || value.isEmpty) {
                                   return 'Required';
                                 }
                                 final num = int.tryParse(value);
-                                if (num == null || num <= 0) {
+                                if (num == null || num <= 0 || num > 99) {
                                   return 'Invalid';
                                 }
                                 return null;
@@ -209,13 +219,14 @@ class _CreatePatternDialogState extends State<CreatePatternDialog> {
                               keyboardType: TextInputType.number,
                               inputFormatters: [
                                 FilteringTextInputFormatter.digitsOnly,
+                                LengthLimitingTextInputFormatter(2),
                               ],
                               validator: (value) {
                                 if (value == null || value.isEmpty) {
                                   return 'Required';
                                 }
                                 final num = int.tryParse(value);
-                                if (num == null || num < 0) {
+                                if (num == null || num < 0 || num > 99) {
                                   return 'Invalid';
                                 }
                                 return null;
