@@ -8,6 +8,7 @@ import 'create_pattern_dialog.dart';
 import '../../core/theme/app_theme.dart';
 import '../../shared/widgets/gradient_app_bar.dart';
 import '../../shared/widgets/themed_card.dart';
+import 'package:characters/characters.dart';
 
 final breathingRepositoryProvider = Provider<BreathingRepository>((ref) {
   return BreathingRepository(ref.watch(apiServiceProvider));
@@ -145,18 +146,25 @@ class BreathingMenuScreen extends ConsumerWidget {
 
                     return Padding(
                       padding: const EdgeInsets.all(16.0),
-                      child: GridView.builder(
-                        gridDelegate:
-                            const SliverGridDelegateWithFixedCrossAxisCount(
-                              crossAxisCount: 2,
-                              childAspectRatio: 1.2,
-                              crossAxisSpacing: 16,
-                              mainAxisSpacing: 16,
-                            ),
-                        itemCount: patterns.length,
-                        itemBuilder: (context, index) {
-                          final pattern = patterns[index];
-                          return _BreathingPatternCard(pattern: pattern);
+                      child: LayoutBuilder(
+                        builder: (context, constraints) {
+                          final width = constraints.maxWidth;
+                          // Increase height for small screens to avoid overflow
+                          final childAspectRatio = width < 380 ? 0.85 : 1.05;
+                          return GridView.builder(
+                            gridDelegate:
+                                SliverGridDelegateWithFixedCrossAxisCount(
+                                  crossAxisCount: 2,
+                                  childAspectRatio: childAspectRatio,
+                                  crossAxisSpacing: 16,
+                                  mainAxisSpacing: 16,
+                                ),
+                            itemCount: patterns.length,
+                            itemBuilder: (context, index) {
+                              final pattern = patterns[index];
+                              return _BreathingPatternCard(pattern: pattern);
+                            },
+                          );
                         },
                       ),
                     );
@@ -206,6 +214,7 @@ class _BreathingPatternCard extends StatelessWidget {
             padding: const EdgeInsets.all(16.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Row(
                   children: [
@@ -228,39 +237,58 @@ class _BreathingPatternCard extends StatelessWidget {
                     ),
                   ],
                 ),
-                const Spacer(),
-                Text(
-                  pattern.name,
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: cardColor,
-                  ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 8),
-                Row(
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _BreathingPhaseIndicator(
-                      label: 'In',
-                      seconds: pattern.inhaleSeconds,
-                      color: cardColor,
+                    Builder(
+                      builder: (context) {
+                        final titleStyle = Theme.of(
+                          context,
+                        ).textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: cardColor,
+                        );
+                        final String cappedTitle =
+                            (pattern.name).characters.take(30).toString();
+                        final double lineHeight =
+                            (titleStyle?.fontSize ?? 16) * 1.25;
+                        return SizedBox(
+                          height: lineHeight,
+                          width: double.infinity,
+                          child: MarqueeText(
+                            text: cappedTitle,
+                            style: titleStyle,
+                            gap: 32,
+                            scrollDuration: const Duration(milliseconds: 8000),
+                            pauseDuration: const Duration(milliseconds: 1200),
+                          ),
+                        );
+                      },
                     ),
-                    const SizedBox(width: 8),
-                    _BreathingPhaseIndicator(
-                      label: 'Hold',
-                      seconds: pattern.holdSeconds,
-                      color: cardColor,
-                    ),
-                    const SizedBox(width: 8),
-                    _BreathingPhaseIndicator(
-                      label: 'Out',
-                      seconds: pattern.exhaleSeconds,
-                      color: cardColor,
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        _BreathingPhaseIndicator(
+                          label: 'In',
+                          seconds: pattern.inhaleSeconds,
+                          color: cardColor,
+                        ),
+                        const SizedBox(width: 8),
+                        _BreathingPhaseIndicator(
+                          label: 'Hold',
+                          seconds: pattern.holdSeconds,
+                          color: cardColor,
+                        ),
+                        const SizedBox(width: 8),
+                        _BreathingPhaseIndicator(
+                          label: 'Out',
+                          seconds: pattern.exhaleSeconds,
+                          color: cardColor,
+                        ),
+                      ],
                     ),
                   ],
                 ),
-                const SizedBox(height: 12),
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.symmetric(vertical: 8),
@@ -283,6 +311,137 @@ class _BreathingPatternCard extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+class MarqueeText extends StatefulWidget {
+  final String text;
+  final TextStyle? style;
+  final Duration scrollDuration;
+  final Duration pauseDuration;
+  final double gap;
+
+  const MarqueeText({
+    super.key,
+    required this.text,
+    this.style,
+    this.scrollDuration = const Duration(milliseconds: 10000),
+    this.pauseDuration = const Duration(milliseconds: 1000),
+    this.gap = 24,
+  });
+
+  @override
+  State<MarqueeText> createState() => _MarqueeTextState();
+}
+
+class _MarqueeTextState extends State<MarqueeText>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  double _textWidth = 0;
+  double _maxWidth = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(vsync: this);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _updateAnimation() {
+    if (_textWidth <= 0 || _maxWidth <= 0) return;
+    final bool overflow = _textWidth > _maxWidth;
+    if (!overflow) {
+      _controller.stop();
+      return;
+    }
+    // Configure a continuous scroll based on total travel distance
+    final double travel = _textWidth + widget.gap;
+    final int baseMs = widget.scrollDuration.inMilliseconds;
+    // Adjust duration proportionally to the travel distance to keep speed reasonable
+    final int durationMs =
+        (baseMs * (travel / 150.0)).clamp(3000, 20000).toInt();
+    _controller.duration = Duration(milliseconds: durationMs);
+    _controller.repeat();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        _maxWidth = constraints.maxWidth;
+
+        // Measure text width
+        final textPainter = TextPainter(
+          text: TextSpan(text: widget.text, style: widget.style),
+          maxLines: 1,
+          textDirection: TextDirection.ltr,
+        )..layout(minWidth: 0, maxWidth: double.infinity);
+        _textWidth = textPainter.width;
+
+        WidgetsBinding.instance.addPostFrameCallback((_) => _updateAnimation());
+
+        final bool overflow = _textWidth > _maxWidth;
+
+        if (!overflow) {
+          return Text(
+            widget.text,
+            style: widget.style,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          );
+        }
+
+        return ClipRect(
+          child: AnimatedBuilder(
+            animation: _controller,
+            builder: (context, child) {
+              final double travel = _textWidth + widget.gap;
+              final double t =
+                  (_controller.duration == null ||
+                          _controller.duration!.inMilliseconds == 0)
+                      ? 0
+                      : _controller.value;
+              final double offset = -t * travel;
+              return Transform.translate(
+                offset: Offset(offset, 0),
+                child: child,
+              );
+            },
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ConstrainedBox(
+                  constraints: BoxConstraints(maxWidth: _textWidth),
+                  child: Text(
+                    widget.text,
+                    style: widget.style,
+                    maxLines: 1,
+                    overflow: TextOverflow.visible,
+                    softWrap: false,
+                  ),
+                ),
+                SizedBox(width: widget.gap),
+                ConstrainedBox(
+                  constraints: BoxConstraints(maxWidth: _textWidth),
+                  child: Text(
+                    widget.text,
+                    style: widget.style,
+                    maxLines: 1,
+                    overflow: TextOverflow.visible,
+                    softWrap: false,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }

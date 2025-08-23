@@ -4,6 +4,7 @@ import 'dart:math';
 import 'package:emotion_ai/data/models/custom_emotion.dart';
 import 'package:emotion_ai/data/models/emotional_record.dart';
 import 'package:emotion_ai/features/auth/auth_provider.dart';
+import 'package:emotion_ai/utils/color_utils.dart';
 import '../../features/custom_emotion/custom_emotion_dialog.dart';
 import 'package:logger/logger.dart';
 
@@ -249,10 +250,8 @@ class _ColorWheelScreenState extends ConsumerState<ColorWheelScreen> {
                                     maxLines: 2,
                                   ),
                                   selected: isSelected,
-                                  selectedColor: Color(emotion.color),
-                                  backgroundColor: Color(
-                                    emotion.color,
-                                  ).withValues(alpha: 0.8),
+                                  selectedColor: ColorHelper.fromDatabaseColor(emotion.color),
+                                  backgroundColor: ColorHelper.fromDatabaseColor(emotion.color).withValues(alpha: 0.8),
                                   onSelected: (_) {
                                     setState(() {
                                       selectedEmotion = emotion;
@@ -369,7 +368,7 @@ class _ColorWheelScreenState extends ConsumerState<ColorWheelScreen> {
                         shuffledCustomEmotions.map((e) {
                           return ActionChip(
                             avatar: CircleAvatar(
-                              backgroundColor: Color(e.color),
+                              backgroundColor: ColorHelper.fromDatabaseColor(e.color),
                               radius: 12,
                             ),
                             label: Text(e.name, overflow: TextOverflow.visible),

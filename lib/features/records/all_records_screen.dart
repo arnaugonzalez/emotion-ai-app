@@ -4,6 +4,7 @@ import 'package:logger/logger.dart';
 import 'package:emotion_ai/data/models/breathing_session.dart';
 import 'package:emotion_ai/data/models/emotional_record.dart';
 import 'presentation/providers/all_records_provider.dart';
+import 'package:emotion_ai/utils/color_utils.dart';
 
 final logger = Logger();
 
@@ -88,10 +89,9 @@ class AllRecordsScreen extends ConsumerWidget {
           elevation: 2,
           child: ListTile(
             leading: CircleAvatar(
-              backgroundColor:
-                  record.customEmotionColor != null
-                      ? Color(record.customEmotionColor!)
-                      : Color(record.color),
+              backgroundColor: ColorHelper.fromDatabaseColor(
+                record.customEmotionColor ?? record.color,
+              ),
               child:
                   record.customEmotionName != null
                       ? Text(
