@@ -7,9 +7,6 @@ import '../widgets/agent_selector.dart';
 import '../../usage/providers/user_limitations_provider.dart';
 import 'package:intl/intl.dart';
 import 'package:emotion_ai/core/theme/app_theme.dart';
-import 'package:emotion_ai/shared/widgets/gradient_app_bar.dart';
-import 'package:emotion_ai/shared/widgets/themed_card.dart';
-import 'package:emotion_ai/shared/widgets/primary_gradient_button.dart';
 import 'package:flutter/foundation.dart';
 
 class TherapyChatScreen extends ConsumerStatefulWidget {

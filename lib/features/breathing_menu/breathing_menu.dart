@@ -8,7 +8,6 @@ import 'create_pattern_dialog.dart';
 import '../../core/theme/app_theme.dart';
 import '../../shared/widgets/gradient_app_bar.dart';
 import '../../shared/widgets/themed_card.dart';
-import 'package:characters/characters.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 
 final breathingRepositoryProvider = Provider<BreathingRepository>((ref) {

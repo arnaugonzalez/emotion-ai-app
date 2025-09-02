@@ -420,7 +420,7 @@ class _ContextModificationDialogState extends State<ContextModificationDialog> {
               ],
             ),
           );
-        }).toList(),
+        }),
       ],
     );
   }

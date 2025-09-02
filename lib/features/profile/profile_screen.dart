@@ -6,7 +6,6 @@ import 'package:emotion_ai/features/auth/auth_provider.dart';
 import 'package:emotion_ai/features/auth/pin_code_screen.dart';
 import 'package:emotion_ai/core/theme/app_theme.dart';
 import 'package:emotion_ai/data/services/profile_service.dart';
-import 'package:emotion_ai/data/models/user_profile.dart';
 import '../terms/terms_dialog.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {

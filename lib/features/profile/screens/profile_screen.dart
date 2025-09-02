@@ -1,13 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:intl/intl.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/themed_card.dart';
-import '../../../shared/widgets/primary_gradient_button.dart';
 import '../../../data/models/user_profile.dart';
 import '../../../data/models/therapy_context.dart';
-import '../../../data/services/profile_service.dart';
 import '../providers/profile_provider.dart';
 import '../widgets/therapy_context_card.dart';
 import '../widgets/profile_form.dart';
